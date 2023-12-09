@@ -1,0 +1,19 @@
+# Go workspace file
+go.work
+
+# Binaries for programs and plugins
+/query-sniper
+/dist
+*.exe
+*.exe~
+*.dll
+*.dylib
+*.so
+
+# Test binary, built with `go test -c`
+*.out
+*.test
+
+# Test coverage output and a temp directory
+/coverage
+/tmp

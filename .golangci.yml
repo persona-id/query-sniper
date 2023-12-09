@@ -1,0 +1,49 @@
+# Visit https://golangci-lint.run/ for usage documentation
+# and information on other useful linters
+issues:
+  max-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  disable-all: true
+  enable:
+    - goimports
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - forcetypeassert
+    # - forbidigo
+    - godot
+    - decorder
+    - gocritic
+    - goconst
+    - gochecknoglobals
+    # - godox
+    - gofmt
+    - gofumpt
+    # - gomnd
+    - gosimple
+    - ineffassign
+    - makezero
+    - nilnil
+    - musttag
+    - misspell
+    - nilerr
+    - predeclared
+    - staticcheck
+    - reassign
+    - revive
+    - tenv
+    - unconvert
+    - unparam
+    - sloglint
+    - unused
+    - vet
+    # - testifylint
+    # - wrapcheck
+    - wsl
+    - whitespace
