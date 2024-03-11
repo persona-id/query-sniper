@@ -3,7 +3,7 @@ module github.com/persona-id/query-sniper
 go 1.21
 
 require (
-	github.com/go-sql-driver/mysql v1.7.1
+	github.com/go-sql-driver/mysql v1.8.0
 	github.com/openark/golib v0.0.0-20210531070646-355f37940af8
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
