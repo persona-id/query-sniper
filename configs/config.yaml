@@ -4,34 +4,25 @@ credentials: configs/credentials.yaml
 
 log_level: DEBUG
 
+# Note: all limits are in seconds and need the 's' suffix
+default_config: &default_config
+  # run the check every 1 second
+  interval: 1s
+  # kill queries if the history list length is greater than 50
+  hll_limit: 50
+  # kill queries that have been running for more than 10 seconds
+  long_query_limit: 10s
+
 # List of databases to watch and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.
 databases:
-  us1_primary:
-    address: 192.168.194.152:6033
-    schema: persona-web-us1
-    replica_lag_limit: 50s
-    hll_limit: 50
-    long_query_limit: 60s
-    interval: 1s
-  us1_replica0:
-    address: 192.168.194.152:6033
-    schema: persona-web-us1
-    replica_lag_limit: 60s
-    hll_limit: 60
-    long_query_limit: 120s
-    interval: 5s
-  us2_primary:
-    address: 192.168.194.152:6033
-    schema: persona-web-us2
-    replica_lag_limit: 70s
-    hll_limit: 70
-    long_query_limit: 60s
-    interval: 1s
-  us2_replica0:
-    address: 192.168.194.152:6033
-    schema: persona-web-us2
-    replica_lag_limit: 80s
-    hll_limit: 80
-    long_query_limit: 120s
-    interval: 5s
+  dev-primary:
+    address: host.docker.internal:3306
+    schema: test
+    <<: *default_config
+  dev-replica:
+    address: host.docker.internal:3307
+    schema: test
+    <<: *default_config
+    # kill queries if the replica is lagging by more than 10 seconds
+    replica_lag_limit: 10s

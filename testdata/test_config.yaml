@@ -1,5 +1,5 @@
 ---
-credentials: test/test_credentials.yaml
+credentials: testdata/test_credentials.yaml
 log_level: DEBUG
 databases:
   test_primary:

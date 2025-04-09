@@ -50,13 +50,13 @@ type MysqlProcess struct {
 //   - QuerySniper: the new sniper with the correct configuration, or a blank struct on error.
 //   - error: any errors that occur, or nil.
 func New(name string, settings *configuration.Config) (QuerySniper, error) {
-	// setch all database specific config via key name
+	// fetch all database specific configs via key name
 	dbConfig := settings.Databases[name]
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/", dbConfig.Username, dbConfig.Password, dbConfig.Address)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return QuerySniper{}, err
+		return QuerySniper{}, fmt.Errorf("error opening database: %w", err)
 	}
 
 	sniper := QuerySniper{
@@ -71,7 +71,7 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 
 	query, err := sniper.generateHunterQuery()
 	if err != nil {
-		return QuerySniper{}, err
+		return QuerySniper{}, fmt.Errorf("error generating hunter query: %w", err)
 	}
 
 	sniper.LRQQuery = query
@@ -100,10 +100,9 @@ func Run(ctx context.Context, settings *configuration.Config) {
 	var wg sync.WaitGroup
 
 	for dbName := range settings.Databases {
-		// FIXME: maybe dont pass in all of settings?
 		sniper, err := New(dbName, settings)
 		if err != nil {
-			slog.Error("Error in createSnipers()", slog.Any("err", err))
+			slog.Error("Error in Run()", slog.Any("err", err))
 			continue
 		}
 
@@ -133,24 +132,29 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 			return
 
 		case <-ticker.C:
-			lagged, err := sniper.DetectLag()
-			if err != nil {
-				slog.Error("Error in sniper.DetectLag()", slog.String("instance", sniper.Name), slog.Any("err", err))
-			}
-
-			if lagged {
-				slog.Warn("Lag detected, running sniper")
-
-				queries, err := sniper.GetLongRunningQueries()
+			if sniper.ReplicaLagLimit > 0 {
+				lagged, err := sniper.DetectLag()
 				if err != nil {
-					slog.Error("Error in sniper.GetLongRunningQueries()", slog.Any("err", err))
+					slog.Error("Error in sniper.DetectLag()", slog.String("instance", sniper.Name), slog.Any("err", err))
 				}
 
-				slog.Info("LRQS", slog.Any("Queries", queries))
+				if lagged {
+					slog.Warn("Lag detected, running sniper")
 
-				sniper.KillProcesses(queries)
-			} else {
-				slog.Debug("No lag detected, sleeping", slog.Duration("interval", sniper.Interval))
+					queries, err := sniper.GetLongRunningQueries()
+					if err != nil {
+						slog.Error("Error in sniper.GetLongRunningQueries()", slog.Any("err", err))
+					}
+
+					slog.Info("LRQS", slog.Any("Queries", queries))
+
+					sniper.KillProcesses(queries)
+				} else {
+					slog.Debug("No replication lag detected, sleeping",
+						slog.String("instance", sniper.Name),
+						slog.Duration("interval", sniper.Interval),
+					)
+				}
 			}
 		}
 	}
@@ -169,7 +173,7 @@ func (sniper QuerySniper) DetectLag() (bool, error) {
 
 	rows, err := sniper.Connection.Query(query)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error querying hll count: %w", err)
 	}
 	defer rows.Close()
 
@@ -177,7 +181,7 @@ func (sniper QuerySniper) DetectLag() (bool, error) {
 
 	err = sniper.Connection.QueryRow(query).Scan(&hllCount)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error scanning hll count: %w", err)
 	}
 
 	if hllCount > sniper.HLLLimit {
@@ -185,9 +189,9 @@ func (sniper QuerySniper) DetectLag() (bool, error) {
 	}
 
 	// Now check for replica lag
-	lag, err := sniper.GetReplicationLagFromSlaveStatus()
+	lag, err := sniper.GetReplicationLagFromReplicaStatus()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error in GetReplicationLagFromReplicaStatus(): %w", err)
 	}
 
 	if lag > sniper.ReplicaLagLimit {
@@ -205,21 +209,25 @@ func (sniper QuerySniper) DetectLag() (bool, error) {
 // Returns:
 //   - time.Duration: replication lag in seconds, or nil on error
 //   - error: any errors that occur, or nil
-func (sniper QuerySniper) GetReplicationLagFromSlaveStatus() (replicationLag time.Duration, err error) {
-	err = sqlutils.QueryRowsMap(sniper.Connection, `show slave status`, func(m sqlutils.RowMap) error {
-		slaveIORunning := m.GetString("Slave_IO_Running")
-		slaveSQLRunning := m.GetString("Slave_SQL_Running")
-		secondsBehindMaster := m.GetNullInt64("Seconds_Behind_Master")
+func (sniper QuerySniper) GetReplicationLagFromReplicaStatus() (replicationLag time.Duration, err error) {
+	err = sqlutils.QueryRowsMap(sniper.Connection, `show replica status`, func(m sqlutils.RowMap) error {
+		replicaIORunning := m.GetString("Replica_IO_Running")
+		replicaSQLRunning := m.GetString("Replica_SQL_Running")
+		secondsBehindPrimary := m.GetNullInt64("Seconds_Behind_Source")
 
-		if !secondsBehindMaster.Valid {
-			return fmt.Errorf("replication not running; Slave_IO_Running=%+v, Slave_SQL_Running=%+v", slaveIORunning, slaveSQLRunning)
+		if !secondsBehindPrimary.Valid {
+			return fmt.Errorf("replication not running; Replica_IO_Running=%+v, Replica_SQL_Running=%+v", replicaIORunning, replicaSQLRunning)
 		}
 
-		replicationLag = time.Duration(secondsBehindMaster.Int64) * time.Second
+		replicationLag = time.Duration(secondsBehindPrimary.Int64) * time.Second
+
 		return nil
 	})
+	if err != nil {
+		return -1, fmt.Errorf("error getting replication lag: %w", err)
+	}
 
-	return replicationLag, err
+	return replicationLag, nil
 }
 
 // Finds all long running queries, using the query generated by generateHunterQuery().
@@ -230,7 +238,7 @@ func (sniper QuerySniper) GetReplicationLagFromSlaveStatus() (replicationLag tim
 func (sniper QuerySniper) GetLongRunningQueries() ([]MysqlProcess, error) {
 	rows, err := sniper.Connection.Query(sniper.LRQQuery)
 	if err != nil {
-		return []MysqlProcess{}, err
+		return []MysqlProcess{}, fmt.Errorf("error getting long running queries: %w", err)
 	}
 	defer rows.Close()
 
@@ -241,7 +249,7 @@ func (sniper QuerySniper) GetLongRunningQueries() ([]MysqlProcess, error) {
 
 		err := rows.Scan(&process.ID, &process.DB, &process.State, &process.Command, &process.Time, &process.Info)
 		if err != nil {
-			return []MysqlProcess{}, err
+			return []MysqlProcess{}, fmt.Errorf("error scanning long running queries: %w", err)
 		}
 
 		processes = append(processes, process)
@@ -306,15 +314,18 @@ func (sniper QuerySniper) generateHunterQuery() (string, error) {
 
 	params := QueryParams{
 		TimeFilter: fmt.Sprintf("AND TIME >= %d", int(timeout)),
-		// FIXME: make this able to support multiple databases with IN?
-		DBFilter: fmt.Sprintf("AND DB in ('%s')", sniper.Schema),
+		DBFilter:   "",
+	}
+
+	if sniper.Schema != "" {
+		params.DBFilter = fmt.Sprintf("AND DB in ('%s')", sniper.Schema)
 	}
 
 	var queryBytes bytes.Buffer
 
 	err := tmpl.Execute(&queryBytes, params)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error executing hunter query: %w", err)
 	}
 
 	result := strings.Join(strings.Fields(queryBytes.String()), " ")

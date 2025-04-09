@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1
-FROM golang:1.21.5-alpine AS builder
+FROM golang:1.24.2-alpine AS builder
 
 ARG BUILD_SHA
 ARG BUILD_TIME
@@ -21,11 +21,11 @@ COPY . .
 RUN CGO_ENABLED="0" go build -o query-sniper cmd/query-sniper/main.go
 
 # Stage 2
-FROM alpine:3.18.4 as runner
+FROM alpine:3.21.3 AS runner
 
-RUN addgroup sniper && adduser -S sniper -u 1000 -G sniper
-
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash=5.2.37-r0 \
+  && addgroup sniper \
+  && adduser -S sniper -u 1000 -G sniper
 
 WORKDIR /app
 

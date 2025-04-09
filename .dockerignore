@@ -6,7 +6,6 @@
 # artifacts of building/testing
 /dist
 /coverage
-/query-sniper
 *.so
 
 # docs don't need to be in the image

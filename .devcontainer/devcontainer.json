@@ -1,0 +1,16 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/go
+{
+	"name": "Go",
+	"features": {
+		"ghcr.io/azutake/devcontainer-features/go-packages-install:0": {
+			"packages": "mvdan.cc/gofumpt@latest,github.com/golangci/golangci-lint/cmd/golangci-lint@latest,github.com/securego/gosec/v2/cmd/gosec@latest"
+		}
+	},
+	"remoteUser": "root",
+	"forwardPorts": [],
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"shutdownAction": "stopCompose",
+	"workspaceFolder": "/workspace"
+}
