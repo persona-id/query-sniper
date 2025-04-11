@@ -9,7 +9,6 @@ require (
 	github.com/openark/golib v0.0.0-20210531070646-355f37940af8
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
 	github.com/yassinebenaid/godump v0.11.1
 )
 
