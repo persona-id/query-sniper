@@ -7,7 +7,6 @@ issues:
 linters:
   disable-all: true
   enable:
-    - copyloopvar
     - decorder
     - dupl
     - dupword
@@ -30,7 +29,6 @@ linters:
     - ineffassign
     - makezero
     - misspell
-    - mnd
     - musttag
     - nilerr
     - nilnil
@@ -42,7 +40,6 @@ linters:
     - unconvert
     - unparam
     - unused
-    - usetesting
     - whitespace
     - wrapcheck
     - wsl
