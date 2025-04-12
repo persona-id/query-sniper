@@ -1,16 +1,23 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/go
 {
-	"name": "Go",
+	"name": "query-sniper",
 	"features": {
 		"ghcr.io/azutake/devcontainer-features/go-packages-install:0": {
 			"packages": "mvdan.cc/gofumpt@latest,github.com/golangci/golangci-lint/cmd/golangci-lint@latest,github.com/securego/gosec/v2/cmd/gosec@latest"
 		}
 	},
-	"remoteUser": "root",
-	"forwardPorts": [],
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
-	"shutdownAction": "stopCompose",
-	"workspaceFolder": "/workspace"
+	"dockerComposeFile": [
+		"../docker-compose.yml",
+		"docker-compose.devcontainer.yml"
+	],
+	"service": "devcontainer",
+	"runServices": [
+		"cert-gen",
+		"db-primary",
+		"db-replica"
+	],
+	"workspaceFolder": "/workspace",
+	// Install extra packages we might need that do not have a feature.
+	"postCreateCommand": "bash -i .devcontainer/bin/install-dependencies && bash -i .devcontainer/bin/bootstrap.sh"
 }

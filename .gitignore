@@ -17,6 +17,3 @@ go.work
 # Test coverage output and a temp directory
 /coverage
 /tmp
-
-# devcontainer miscellany
-/.devcontainer/certs

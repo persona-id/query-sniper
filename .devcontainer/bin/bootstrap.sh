@@ -1,5 +1,5 @@
-#!/bin/bash
-set -eou pipefail
+#!/usr/bin/env bash
+set -eoux pipefail
 
 mysql -hdb-primary -P3306 -uroot -proot << EOF
 ALTER USER 'test'@'%' IDENTIFIED WITH 'caching_sha2_password' BY 'test';

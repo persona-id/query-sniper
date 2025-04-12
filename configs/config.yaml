@@ -17,11 +17,11 @@ default_config: &default_config
 # are stored in the file defined above, and the keys to each database entry must match.
 databases:
   dev-primary:
-    address: host.docker.internal:3306
+    address: db-primary:3306
     schema: test
     <<: *default_config
   dev-replica:
-    address: host.docker.internal:3307
+    address: db-replica:3306
     schema: test
     <<: *default_config
     # kill queries if the replica is lagging by more than 10 seconds

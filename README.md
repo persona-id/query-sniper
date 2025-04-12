@@ -21,11 +21,21 @@ It should be noted that replica lag fetched from the database via `SHOW SLAVE ST
 
 ## Development
 
+### Devcontainer
+
+1. When prompted by vscode or intellij relaunch the project in the devcontainer.
+
+This will use the docker compose file with an overlay to start a primary database, database replica, generate tls
+certificates, and a development container. The development container shares the same network as the database instances
+and can be used to develop, test, build, and run query-sniper.
+
+When using the devcontainer the db replica bootstrap script is automatically run to establish mysql replication.
+
+### Docker Compose
 Start the local mysql cluster:
 
-1. `cd .devcontainer`
-1. `docker compose down -v && docker compose up`
-1. `./bootstrap.sh`
+1. `docker compose down -v && docker compose up -d`
+1. `docker compose exec -it app /workspace/.devcontainer/bin/bootstrap.sh`
 
 The docker compose file starts up a primary and secondary mysql instance with GTID replication configured. The `bootstrap.sh` file then:
 1. On the primary server, sets the `test` user up with replication premissions and creates a sample table in the `test` schema

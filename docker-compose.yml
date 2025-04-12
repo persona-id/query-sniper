@@ -1,24 +1,19 @@
 services:
   app:
     build:
-      context: ..
       dockerfile: Dockerfile
     cap_add:
       - SYS_PTRACE
-    command: sleep infinity
     depends_on:
       - db-primary
       - db-replica
     environment:
       - MYSQL_PS1=\u@\h>\_
-    networks:
-      - dev-network
     security_opt:
       - seccomp:unconfined
     volumes:
-      - ../:/workspace:cached
-      - ./certs:/etc/mysql/certs
-
+      - .:/workspace:cached
+      - ./tmp/certs:/etc/mysql/certs
 
   db-primary:
     image: mysql:8.0.36
@@ -30,7 +25,6 @@ services:
       - MYSQL_PASSWORD=test
     command:
       - --server-id=1
-      - --bind-address=0.0.0.0
       - --ssl=1
       - --ssl-ca=/etc/mysql/certs/ca.crt
       - --ssl-cert=/etc/mysql/certs/mysql.crt
@@ -39,15 +33,10 @@ services:
       - --enforce-gtid-consistency=ON
       - --log-bin=mysql-bin
       - --binlog-format=row
-    networks:
-      - dev-network
-    ports:
-      - 3306:3306
     tmpfs:
       - /var/lib/mysql
     volumes:
-      - ./certs:/etc/mysql/certs
-
+      - ./tmp/certs:/etc/mysql/certs
 
   db-replica:
     image: mysql:8.0.36
@@ -58,7 +47,6 @@ services:
       - MYSQL_ROOT_PASSWORD=root
     command:
       - --server-id=2
-      - --bind-address=0.0.0.0
       - --ssl=1
       - --ssl-ca=/etc/mysql/certs/ca.crt
       - --ssl-cert=/etc/mysql/certs/mysql.crt
@@ -68,20 +56,15 @@ services:
       - --log-bin=mysql-bin
       - --binlog-format=row
       - --read-only
-    ports:
-      - 3307:3306
-    networks:
-      - dev-network
     tmpfs:
       - /var/lib/mysql
     volumes:
-      - ./certs:/etc/mysql/certs
-
+      - ./tmp/certs:/etc/mysql/certs
 
   cert-gen:
     image: alpine
     volumes:
-      - ./certs:/certs
+      - ./tmp/certs:/certs
     entrypoint:
       - /bin/sh
       - -c
@@ -97,7 +80,3 @@ services:
         openssl x509 -req -in /certs/mysql.csr -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial -out /certs/mysql.crt -days 365 &&
         chmod 600 /certs/* && chown 999:999 /certs/*
     restart: "no"
-
-networks:
-  dev-network:
-    driver: bridge

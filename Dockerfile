@@ -16,4 +16,4 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY . .
 
-CMD ["go", "run", "main.go"]
+CMD ["go", "run", "cmd/query-sniper/main.go"]
