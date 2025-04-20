@@ -20,10 +20,8 @@ clean:
 	@rm -rf $(TARGET) *.test *.out tmp/* coverage dist
 
 lint:
-	@go vet ./...
-	@gofumpt -l -w .
-	@golangci-lint run --config=.golangci.yml --allow-parallel-runners
-	@gosec --quiet ./...
+	@go tool gofumpt -l -w .
+	@golangci-lint run --config=.golangci.yml --allow-parallel-runners # includes govet and gosec
 
 test:
 	@mkdir -p coverage
@@ -39,7 +37,7 @@ docker: clean lint
 	@docker build -f build/dev.Dockerfile . -t persona-id/query-sniper:latest
 
 snapshot: clean lint
-	@goreleaser --snapshot --clean
+	@go tool goreleaser --snapshot --clean
 
 release: clean lint
-	@goreleaser --clean
+	@go tool goreleaser --clean

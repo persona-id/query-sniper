@@ -8,8 +8,6 @@ log_level: DEBUG
 default_config: &default_config
   # run the check every 1 second
   interval: 1s
-  # kill queries if the history list length is greater than 50
-  hll_limit: 50
   # kill queries that have been running for more than 10 seconds
   long_query_limit: 10s
 
@@ -24,5 +22,3 @@ databases:
     address: db-replica:3306
     schema: test
     <<: *default_config
-    # kill queries if the replica is lagging by more than 10 seconds
-    replica_lag_limit: 10s

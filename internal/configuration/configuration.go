@@ -12,18 +12,16 @@ import (
 )
 
 type Config struct {
+	Databases map[string]struct {
+		Address        string        `mapstructure:"address"`
+		Schema         string        `mapstructure:"schema"`
+		Username       string        `mapstructure:"username"`
+		Password       string        `mapstructure:"password"`
+		Interval       time.Duration `mapstructure:"interval"`
+		LongQueryLimit time.Duration `mapstructure:"long_query_limit"`
+	} `mapstructure:"databases"`
 	LogLevel    string `mapstructure:"log_level"`
 	Credentials string `mapstructure:"credentials"`
-	Databases   map[string]struct {
-		Address         string        `mapstructure:"address"`
-		Schema          string        `mapstructure:"schema"`
-		Username        string        `mapstructure:"username"`
-		Password        string        `mapstructure:"password"`
-		ReplicaLagLimit time.Duration `mapstructure:"replica_lag_limit"`
-		HLLLimit        int           `mapstructure:"hll_limit"`
-		Interval        time.Duration `mapstructure:"interval"`
-		LongQueryLimit  time.Duration `mapstructure:"long_query_limit"`
-	} `mapstructure:"databases"`
 }
 
 func Configure() (*Config, error) {
@@ -87,7 +85,7 @@ func Configure() (*Config, error) {
 		os.Exit(0)
 	}
 
-	settings := &Config{}
+	settings := &Config{} //nolint:exhaustruct
 
 	err = viper.Unmarshal(settings)
 	if err != nil {

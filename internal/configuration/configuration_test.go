@@ -11,9 +11,9 @@ import (
 
 func TestConfigFile(t *testing.T) {
 	tests := []struct {
+		validate func(*testing.T, *Config)
 		name     string
 		wantErr  bool
-		validate func(*testing.T, *Config)
 	}{
 		{
 			name:    "valid configuration",
@@ -30,9 +30,6 @@ func TestConfigFile(t *testing.T) {
 				if got := primary.Username; got != "primary_user" {
 					t.Errorf("Primary DB Username = %v, want %v", got, "primary_user")
 				}
-				if got := primary.ReplicaLagLimit; got != 15*time.Minute {
-					t.Errorf("Primary DB ReplicaLagLimit = %v, want %v", got, 15*time.Minute)
-				}
 				if got := primary.LongQueryLimit; got != 60*time.Second {
 					t.Errorf("Primary DB LongQueryLimit = %v, want %v", got, 60*time.Second)
 				}
@@ -43,9 +40,6 @@ func TestConfigFile(t *testing.T) {
 				replica := config.Databases["test_replica"]
 				if got := replica.Password; got != "replica_pass" {
 					t.Errorf("Replica DB Password = %v, want %v", got, "replica_pass")
-				}
-				if got := replica.HLLLimit; got != 120 {
-					t.Errorf("Replica DB HLLLimit = %v, want %v", got, 120)
 				}
 			},
 		},

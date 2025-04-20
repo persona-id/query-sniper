@@ -5,14 +5,10 @@ databases:
   test_primary:
     address: 127.0.0.1:3306
     schema: test_schema
-    replica_lag_limit: 15m
-    hll_limit: 60
     long_query_limit: 60s
     interval: 5s
   test_replica:
     address: 127.0.0.1:3307
     schema: test_schema
-    replica_lag_limit: 5m
-    hll_limit: 120
     long_query_limit: 1m
     interval: 1m

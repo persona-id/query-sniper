@@ -1,23 +1,6 @@
 # Query Sniper
 
-This project is a simple daemon that watches MySQL databases and detects if they are lagging; if they are, it will search for and kill and long running queries that might be impacting the database(s).
-
-## Design concept
-
-Extremely simplified pseudocode for the concept:
-
-```
-every S seconds
-    if (hllSize > H entries) || (replicaLag() > L seconds)gf
-        find all queries that are aged > Q seconds
-            kill each query
-            log query digest (ie the parameterized version of a query) and the action taken
-    else
-        // nothing to do
-        next
-```
-
-It should be noted that replica lag fetched from the database via `SHOW SLAVE STATUS` isn't the entire picture, because it doesn't take into account binlog fetching (Alex has more context); for now it will have to suffice.
+This project is a simple daemon that watches MySQL databases and detects long running queries; any that are found will be killed.
 
 ## Development
 
@@ -47,8 +30,6 @@ Once the bootstrap script is run, you should be able to see the `test.config` ta
 
 1. ✅ Watch multiple databases at a time
 1. ✅ Configurable via config files (one for config, one for database auth creds)
-1. ✅ Make the lag detection (HLL and replica) optional per database, via a configuration option
-    - This should just kill long running queries without checking for anything impacting the database first
 1. Logging when a connection is killed
     - We might also want to include the digest of said connection, if we can strip out the PII
 

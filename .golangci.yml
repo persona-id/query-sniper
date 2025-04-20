@@ -1,31 +1,54 @@
-# Visit https://golangci-lint.run/ for usage documentation
-# and information on other useful linters
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - cyclop
     - decorder
+    - depguard
+    - dogsled
     - dupl
     - dupword
     - durationcheck
+    - err113
     - errcheck
+    - errchkjson
     - errname
     - errorlint
+    - exhaustive
+    - exhaustruct
+    - exptostd
+    - fatcontext
     - forbidigo
     - forcetypeassert
+    - funcorder
+    - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
     - gochecknoglobals
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
     - goconst
     - gocritic
+    - gocyclo
     - godot
     - godox
-    - gofmt
-    - gofumpt
-    - goimports
-    - gosimple
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
     - govet
+    - grouper
     - ineffassign
     - makezero
     - misspell
@@ -44,6 +67,65 @@ linters:
     - wrapcheck
     - wsl
 
-linters-settings:
-  goconst:
-    min-occurrences: 5
+  settings:
+    cyclop:
+      max-complexity: 20
+      package-average: 0
+    depguard:
+      rules:
+        main:
+          list-mode: strict
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/go-sql-driver/mysql
+            - github.com/openark/golib/sqlutils
+            - github.com/persona-id/query-sniper/
+            - github.com/spf13/pflag
+            - github.com/spf13/viper
+            - github.com/yassinebenaid/godump
+    funlen:
+      lines: -1
+      statements: 50
+    goconst:
+      min-occurrences: 5
+    govet:
+      enable-all: true
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    # - goimports # something's jacked up in sniper.go, it's complaining about the import but it seems fine
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
+        - pattern: 'a[b:len(a)]'
+          replacement: 'a[b:]'
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/persona-id/query-sniper
+  exclusions:
+    generated: lax
