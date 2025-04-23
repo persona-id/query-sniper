@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/lmittmann/tint"
 	"github.com/persona-id/query-sniper/internal/configuration"
 	"github.com/persona-id/query-sniper/internal/sniper"
 )
@@ -18,7 +20,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLogger(settings.LogLevel)
+	setupLogger(settings)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
@@ -35,10 +37,10 @@ func main() {
 	slog.Info("QuerySniper shut down")
 }
 
-func setupLogger(level string) {
+func setupLogger(settings *configuration.Config) {
 	var logLevel slog.Level
 
-	switch level {
+	switch settings.LogLevel {
 	case "DEBUG":
 		logLevel = slog.LevelDebug
 	case "INFO":
@@ -51,13 +53,21 @@ func setupLogger(level string) {
 		logLevel = slog.LevelInfo
 	}
 
-	opts := &slog.HandlerOptions{
-		AddSource:   true,
+	handler := tint.NewHandler(os.Stdout, &tint.Options{
+		AddSource:   false,
 		Level:       logLevel,
+		TimeFormat:  time.RFC3339,
+		NoColor:     false,
 		ReplaceAttr: nil,
-	}
+	})
 
-	var handler slog.Handler = slog.NewTextHandler(os.Stdout, opts)
+	if settings.LogFormat == "JSON" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource:   false,
+			Level:       logLevel,
+			ReplaceAttr: nil,
+		})
+	}
 
 	logger := slog.New(handler)
 

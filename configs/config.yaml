@@ -1,17 +1,21 @@
 ---
-# Path to the crednetials secret
+# Path to the credentials secret.
 credentials: configs/credentials.yaml
 
-log_level: DEBUG
+# The log level to use. Valid options are "DEBUG", "INFO", "WARN", and "ERROR".
+log_level: INFO
 
-# Note: all limits are in seconds and need the 's' suffix
+# The format of the log output. Valid options are "TEXT" and "JSON". If TEXT, log output will be colorized.
+log_format: TEXT
+
+# Note: all limits are in seconds, and need the 's' suffix
 default_config: &default_config
   # run the check every 1 second
   interval: 1s
-  # kill queries that have been running for more than 10 seconds
-  long_query_limit: 10s
+  # kill queries that have been running for more than X seconds
+  long_query_limit: 2s
 
-# List of databases to watch and various configuration options for them. The login creds
+# List of databases to watch, and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.
 databases:
   dev-primary:

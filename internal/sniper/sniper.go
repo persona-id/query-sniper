@@ -129,13 +129,7 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 			}
 
 			if len(queries) > 0 {
-				slog.Info("LRQS", slog.Any("Queries", queries))
 				sniper.KillProcesses(queries)
-			} else {
-				slog.Debug("No replication lag detected, sleeping",
-					slog.String("instance", sniper.Name),
-					slog.Duration("interval", sniper.Interval),
-				)
 			}
 		}
 	}
@@ -189,9 +183,23 @@ func (sniper QuerySniper) KillProcesses(processes []MysqlProcess) int {
 		_, err := sniper.Connection.Exec(killQuery)
 		if err != nil {
 			// We log here, rather than returning err, because we don't want to stop processing all of the other queries.
-			slog.Error("Error killing process ID", slog.Int("process_id", process.ID), slog.Any("err", err))
+			slog.Error("Error killing process ID",
+				slog.Int("process_id", process.ID),
+				slog.String("query", process.Info.String),
+				slog.String("db", process.DB.String),
+				slog.Any("err", err),
+			)
+
 			continue
 		}
+
+		slog.Info("Killed process ID",
+			slog.Int("process_id", process.ID),
+			slog.String("query", process.Info.String),
+			slog.String("db", process.DB.String),
+			slog.String("state", process.State.String),
+			slog.Int("time", process.Time),
+		)
 
 		killed++
 	}
@@ -207,9 +215,9 @@ func (sniper QuerySniper) KillProcesses(processes []MysqlProcess) int {
 func (sniper QuerySniper) generateHunterQuery() (string, error) {
 	tmpl := template.Must(template.New("query hunter").Parse(`
 		SELECT ID, DB, STATE, COMMAND, TIME, INFO
-		FROM performance_schema.PROCESSLIST
+		FROM performance_schema.processlist
 		WHERE COMMAND NOT IN ('Sleep', 'Killed')
-		AND INFO NOT LIKE '%PROCESSLIST%'
+		AND INFO NOT LIKE '%processlist%'
 		AND DB IS NOT NULL
 		{{.TimeFilter}}
 		{{.DBFilter}}

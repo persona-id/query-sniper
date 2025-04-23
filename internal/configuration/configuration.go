@@ -20,6 +20,7 @@ type Config struct {
 		Interval       time.Duration `mapstructure:"interval"`
 		LongQueryLimit time.Duration `mapstructure:"long_query_limit"`
 	} `mapstructure:"databases"`
+	LogFormat   string `mapstructure:"log_format"`
 	LogLevel    string `mapstructure:"log_level"`
 	Credentials string `mapstructure:"credentials"`
 }
@@ -35,6 +36,9 @@ func Configure() (*Config, error) {
 		viper.AddConfigPath(".")
 		viper.AddConfigPath("configs")
 	}
+
+	pflag.String("log.level", "INFO", "the log level for the agent; defaults to INFO")
+	pflag.String("log.format", "JSON", "Format of the logs; valid values: [JSON OR plain]")
 
 	// read the config file, if it exists. if not, keep on truckin'
 	if err := viper.ReadInConfig(); err != nil {
