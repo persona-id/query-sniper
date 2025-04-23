@@ -81,6 +81,7 @@ linters:
           allow:
             - $gostd
             - github.com/go-sql-driver/mysql
+            - github.com/lmittmann/tint
             - github.com/openark/golib/sqlutils
             - github.com/persona-id/query-sniper/
             - github.com/spf13/pflag

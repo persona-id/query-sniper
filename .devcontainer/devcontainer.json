@@ -15,5 +15,19 @@
 	],
 	"workspaceFolder": "/workspace",
 	// Install extra packages we might need that do not have a feature.
-	"postCreateCommand": "bash -i .devcontainer/bin/install-dependencies && bash -i .devcontainer/bin/bootstrap.sh"
+	"postCreateCommand": "bash -i .devcontainer/bin/install-dependencies && bash -i .devcontainer/bin/bootstrap.sh",
+	// Enable some extensions inside the devcontainer.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"redhat.vscode-yaml",
+				"waderyan.gitblame"
+			],
+			// I never ever want to even look at TypeScript, so there's no reason for this extension to be installed.
+			"unwantedExtensions": [
+				"dbaeumer.vscode-eslint"
+			]
+		}
+	}
 }
