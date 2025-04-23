@@ -6,7 +6,9 @@ TARGET := 'query-sniper'
 # Use linker flags to provide version/build settings to the target.
 LDFLAGS=-ldflags "-s -w"
 
-all: clean lint build
+.PHONY: all build clean lint test coverage run docker snapshot release
+
+all: lint build
 
 $(TARGET):
 	@go build $(LDFLAGS) -o $(TARGET) cmd/query-sniper/main.go
@@ -18,11 +20,10 @@ clean:
 	@rm -rf $(TARGET) *.test *.out tmp/* coverage dist
 
 lint:
-	@gofumpt -l -w .
-	@go vet ./...
-	@golangci-lint run --config=.golangci.yml --allow-parallel-runners
+	@go tool gofumpt -l -w .
+	@golangci-lint run --config=.golangci.yml --allow-parallel-runners # includes govet and gosec
 
-tests:
+test:
 	@mkdir -p coverage
 	@go test ./... -v -shuffle=on -coverprofile coverage/coverage.out
 
@@ -36,7 +37,7 @@ docker: clean lint
 	@docker build -f build/dev.Dockerfile . -t persona-id/query-sniper:latest
 
 snapshot: clean lint
-	@goreleaser --snapshot --clean
+	@go tool goreleaser --snapshot --clean
 
 release: clean lint
-	@goreleaser --clean
+	@go tool goreleaser --clean

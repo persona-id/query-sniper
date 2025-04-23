@@ -1,0 +1,82 @@
+services:
+  app:
+    build:
+      dockerfile: Dockerfile
+    cap_add:
+      - SYS_PTRACE
+    depends_on:
+      - db-primary
+      - db-replica
+    environment:
+      - MYSQL_PS1=\u@\h>\_
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - .:/workspace:cached
+      - ./tmp/certs:/etc/mysql/certs
+
+  db-primary:
+    image: mysql:8.0.36
+    container_name: db-primary
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=test
+      - MYSQL_PASSWORD=test
+    command:
+      - --server-id=1
+      - --ssl=1
+      - --ssl-ca=/etc/mysql/certs/ca.crt
+      - --ssl-cert=/etc/mysql/certs/mysql.crt
+      - --ssl-key=/etc/mysql/certs/mysql.key
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --log-bin=mysql-bin
+      - --binlog-format=row
+    tmpfs:
+      - /var/lib/mysql
+    volumes:
+      - ./tmp/certs:/etc/mysql/certs
+
+  db-replica:
+    image: mysql:8.0.36
+    container_name: db-replica
+    depends_on:
+      - db-primary
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    command:
+      - --server-id=2
+      - --ssl=1
+      - --ssl-ca=/etc/mysql/certs/ca.crt
+      - --ssl-cert=/etc/mysql/certs/mysql.crt
+      - --ssl-key=/etc/mysql/certs/mysql.key
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --log-bin=mysql-bin
+      - --binlog-format=row
+      - --read-only
+    tmpfs:
+      - /var/lib/mysql
+    volumes:
+      - ./tmp/certs:/etc/mysql/certs
+
+  cert-gen:
+    image: alpine
+    volumes:
+      - ./tmp/certs:/certs
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache openssl &&
+        # Generate CA key and certificate first
+        openssl genpkey -algorithm RSA -out /certs/ca.key -pkeyopt rsa_keygen_bits:2048 &&
+        openssl req -new -x509 -key /certs/ca.key -out /certs/ca.crt -days 1095 -subj "/CN=Certificate Authority/O=myorg/C=US" &&
+        # Generate server key and CSR
+        openssl genpkey -algorithm RSA -out /certs/mysql.key -pkeyopt rsa_keygen_bits:2048 &&
+        openssl req -new -key /certs/mysql.key -out /certs/mysql.csr -subj "/CN=mysql/O=myorg/C=US" &&
+        # Sign the server certificate with the CA
+        openssl x509 -req -in /certs/mysql.csr -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial -out /certs/mysql.crt -days 365 &&
+        chmod 600 /certs/* && chown 999:999 /certs/*
+    restart: "no"

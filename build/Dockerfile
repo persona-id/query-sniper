@@ -1,9 +1,8 @@
-FROM alpine:3.18
+FROM alpine:3.21.3
 
-RUN  sniper \
+RUN apk add --no-cache bash=5.2.37-r0 \
+    && addgroup -S sniper \
     && adduser -S sniper -u 1000 -G sniper
-
-RUN apk add --no-cache bash=5.2.15-r5
 
 # config.yaml should be a configmap mounted as /app/config.yaml
 # credentials.yaml should be a secret mounted as /app/credentials.yaml (or whatever path is configured in config.yaml)

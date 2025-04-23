@@ -8,21 +8,20 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/yassinebenaid/godump"
 )
 
 type Config struct {
+	Databases map[string]struct {
+		Address        string        `mapstructure:"address"`
+		Schema         string        `mapstructure:"schema"`
+		Username       string        `mapstructure:"username"`
+		Password       string        `mapstructure:"password"`
+		Interval       time.Duration `mapstructure:"interval"`
+		LongQueryLimit time.Duration `mapstructure:"long_query_limit"`
+	} `mapstructure:"databases"`
 	LogLevel    string `mapstructure:"log_level"`
 	Credentials string `mapstructure:"credentials"`
-	Databases   map[string]struct {
-		Address         string        `mapstructure:"address"`
-		Schema          string        `mapstructure:"schema"`
-		Username        string        `mapstructure:"username"`
-		Password        string        `mapstructure:"password"`
-		ReplicaLagLimit time.Duration `mapstructure:"replica_lag_limit"`
-		HLLLimit        int           `mapstructure:"hll_limit"`
-		Interval        time.Duration `mapstructure:"interval"`
-		LongQueryLimit  time.Duration `mapstructure:"long_query_limit"`
-	} `mapstructure:"databases"`
 }
 
 func Configure() (*Config, error) {
@@ -41,7 +40,7 @@ func Configure() (*Config, error) {
 	if err := viper.ReadInConfig(); err != nil {
 		errVal := viper.ConfigFileNotFoundError{}
 		if ok := errors.As(err, &errVal); !ok {
-			return nil, err
+			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
 	}
 
@@ -51,7 +50,7 @@ func Configure() (*Config, error) {
 
 		err := viper.MergeInConfig()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error merging credentials config: %w", err)
 		}
 	} else {
 		if creds := viper.GetViper().GetString("credentials"); creds != "" {
@@ -59,7 +58,7 @@ func Configure() (*Config, error) {
 
 			err := viper.MergeInConfig()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error merging credentials config: %w", err)
 			}
 		}
 	}
@@ -68,27 +67,29 @@ func Configure() (*Config, error) {
 
 	err := pflag.CommandLine.MarkHidden("show-config")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marking hidden flag: %w", err)
 	}
 
 	pflag.Parse()
 
 	err = viper.BindPFlags(pflag.CommandLine)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error binding pflags: %w", err)
 	}
 
 	// we are only dumping the config if the secret flag show-config is specified, because the config
 	// contains the proxysql admin password
 	if viper.GetViper().GetBool("show-config") {
-		fmt.Println("settings", viper.GetViper().AllSettings())
+		_ = godump.Dump(viper.GetViper().AllSettings())
+
+		os.Exit(0)
 	}
 
-	settings := &Config{}
+	settings := &Config{} //nolint:exhaustruct
 
 	err = viper.Unmarshal(settings)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
 	return settings, nil

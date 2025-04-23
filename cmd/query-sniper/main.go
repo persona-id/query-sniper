@@ -52,8 +52,9 @@ func setupLogger(level string) {
 	}
 
 	opts := &slog.HandlerOptions{
-		AddSource: true,
-		Level:     logLevel,
+		AddSource:   true,
+		Level:       logLevel,
+		ReplaceAttr: nil,
 	}
 
 	var handler slog.Handler = slog.NewTextHandler(os.Stdout, opts)

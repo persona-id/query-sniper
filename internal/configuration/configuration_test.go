@@ -7,35 +7,68 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigFile(t *testing.T) {
-	viper.Reset()
+	tests := []struct {
+		validate func(*testing.T, *Config)
+		name     string
+		wantErr  bool
+	}{
+		{
+			name:    "valid configuration",
+			wantErr: false,
+			validate: func(t *testing.T, config *Config) {
+				if got := config.Credentials; got != "testdata/test_credentials.yaml" {
+					t.Errorf("Config.Credentials = %v, want %v", got, "testdata/test_credentials.yaml")
+				}
 
-	currentDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
+				primary := config.Databases["test_primary"]
+				if got := primary.Address; got != "127.0.0.1:3306" {
+					t.Errorf("Primary DB Address = %v, want %v", got, "127.0.0.1:3306")
+				}
+				if got := primary.Username; got != "primary_user" {
+					t.Errorf("Primary DB Username = %v, want %v", got, "primary_user")
+				}
+				if got := primary.LongQueryLimit; got != 60*time.Second {
+					t.Errorf("Primary DB LongQueryLimit = %v, want %v", got, 60*time.Second)
+				}
+				if got := primary.Schema; got != "test_schema" {
+					t.Errorf("Primary DB Schema = %v, want %v", got, "test_schema")
+				}
+
+				replica := config.Databases["test_replica"]
+				if got := replica.Password; got != "replica_pass" {
+					t.Errorf("Replica DB Password = %v, want %v", got, "replica_pass")
+				}
+			},
+		},
 	}
 
-	// Get the absolute path to the test config files, to prevent copying them around in the test.
-	configFilePath := filepath.Join(currentDir, "../../test/test_config.yaml")
-	credentialsFilePath := filepath.Join(currentDir, "../../test/test_credentials.yaml")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
 
-	t.Setenv("SNIPER_CONFIG_FILE", configFilePath)
-	t.Setenv("SNIPER_CREDS_FILE", credentialsFilePath)
+			currentDir, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	config, err := Configure()
-	assert.NoError(t, err, "Configuration should not return an error")
+			configFilePath := filepath.Join(currentDir, "../../testdata/test_config.yaml")
+			credentialsFilePath := filepath.Join(currentDir, "../../testdata/test_credentials.yaml")
 
-	assert.Equal(t, config.Credentials, "test/test_credentials.yaml")
+			t.Setenv("SNIPER_CONFIG_FILE", configFilePath)
+			t.Setenv("SNIPER_CREDS_FILE", credentialsFilePath)
 
-	assert.Equal(t, "127.0.0.1:3306", config.Databases["test_primary"].Address)
-	assert.Equal(t, "primary_user", config.Databases["test_primary"].Username)
-	assert.Equal(t, 15*time.Minute, config.Databases["test_primary"].ReplicaLagLimit)
-	assert.Equal(t, 60*time.Second, config.Databases["test_primary"].LongQueryLimit)
+			config, err := Configure()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Configure() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 
-	assert.Equal(t, "test_schema", config.Databases["test_primary"].Schema)
-	assert.Equal(t, "replica_pass", config.Databases["test_replica"].Password)
-	assert.Equal(t, 120, config.Databases["test_replica"].HLLLimit)
+			if err == nil {
+				tt.validate(t, config)
+			}
+		})
+	}
 }

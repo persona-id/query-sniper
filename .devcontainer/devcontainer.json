@@ -1,0 +1,19 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/go
+{
+	"name": "query-sniper",
+	"features": {},
+	"dockerComposeFile": [
+		"../docker-compose.yml",
+		"docker-compose.devcontainer.yml"
+	],
+	"service": "devcontainer",
+	"runServices": [
+		"cert-gen",
+		"db-primary",
+		"db-replica"
+	],
+	"workspaceFolder": "/workspace",
+	// Install extra packages we might need that do not have a feature.
+	"postCreateCommand": "bash -i .devcontainer/bin/install-dependencies && bash -i .devcontainer/bin/bootstrap.sh"
+}

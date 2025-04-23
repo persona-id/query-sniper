@@ -33,7 +33,8 @@ dockers:
     skip_push: false
 
 builds:
-  - env:
+  - main: ./cmd/query-sniper/main.go
+    env:
       - CGO_ENABLED=0
       - GO111MODULE=on
     goos:
