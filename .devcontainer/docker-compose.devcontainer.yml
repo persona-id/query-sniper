@@ -1,6 +1,6 @@
 services:
   devcontainer:
-    image: mcr.microsoft.com/devcontainers/go:1-1.24-bookworm
+    image: mcr.microsoft.com/devcontainers/go:dev-1.25-bookworm
     volumes:
       # Mounts the project folder to '/workspace'. The target path inside the container
       # should match what your application expects. In this case, the compose file is
@@ -14,8 +14,9 @@ services:
     security_opt:
     - seccomp:unconfined
     depends_on:
-      - db-primary
-      - db-replica
+      - dev-db-primary
+      - dev-db-replica0
+      - dev-db-replica1
     command: sleep infinity
     environment:
       - MYSQL_PS1=\u@\h>\_

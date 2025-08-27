@@ -19,6 +19,8 @@ func TestConfigFile(t *testing.T) {
 			name:    "valid configuration",
 			wantErr: false,
 			validate: func(t *testing.T, config *Config) {
+				t.Helper()
+
 				if got := config.Credentials; got != "testdata/test_credentials.yaml" {
 					t.Errorf("Config.Credentials = %v, want %v", got, "testdata/test_credentials.yaml")
 				}
@@ -63,6 +65,7 @@ func TestConfigFile(t *testing.T) {
 			config, err := Configure()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Configure() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 

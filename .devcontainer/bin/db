@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -eou pipefail
+
+# Connect to the primary db docker container by default.
+DB_HOST="dev-db-primary"
+
+# If ARGV1 is "replica" then connect to the replica container.
+if [ "$#" -ge 1 ] && [ "$1" = "replica" ]; then
+  DB_HOST="dev-db-replica"
+fi
+
+mysql -h$DB_HOST -uroot -proot test

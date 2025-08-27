@@ -1,12 +1,13 @@
 services:
   app:
     build:
-      dockerfile: Dockerfile
+      dockerfile: build/dev.Dockerfile
     cap_add:
       - SYS_PTRACE
     depends_on:
-      - db-primary
-      - db-replica
+      - dev-db-primary
+      - dev-db-replica0
+      - dev-db-replica1
     environment:
       - MYSQL_PS1=\u@\h>\_
     security_opt:
@@ -15,9 +16,9 @@ services:
       - .:/workspace:cached
       - ./tmp/certs:/etc/mysql/certs
 
-  db-primary:
+  dev-db-primary:
     image: mysql:8.0.36
-    container_name: db-primary
+    container_name: dev-db-primary
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=test
@@ -38,15 +39,38 @@ services:
     volumes:
       - ./tmp/certs:/etc/mysql/certs
 
-  db-replica:
+  dev-db-replica0:
     image: mysql:8.0.36
-    container_name: db-replica
+    container_name: dev-db-replica0
     depends_on:
-      - db-primary
+      - dev-db-primary
     environment:
       - MYSQL_ROOT_PASSWORD=root
     command:
       - --server-id=2
+      - --ssl=1
+      - --ssl-ca=/etc/mysql/certs/ca.crt
+      - --ssl-cert=/etc/mysql/certs/mysql.crt
+      - --ssl-key=/etc/mysql/certs/mysql.key
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --log-bin=mysql-bin
+      - --binlog-format=row
+      - --read-only
+    tmpfs:
+      - /var/lib/mysql
+    volumes:
+      - ./tmp/certs:/etc/mysql/certs
+
+  dev-db-replica1:
+    image: mysql:8.0.36
+    container_name: dev-db-replica1
+    depends_on:
+      - dev-db-primary
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    command:
+      - --server-id=3
       - --ssl=1
       - --ssl-ca=/etc/mysql/certs/ca.crt
       - --ssl-cert=/etc/mysql/certs/mysql.crt

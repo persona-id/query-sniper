@@ -1,7 +1,9 @@
 # Random directories we don't need in the iamge
+/.devcontainer
 /.github
 /build
 /tmp
+/testdata
 
 # artifacts of building/testing
 /dist
