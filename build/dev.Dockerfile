@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 
+# This is the dockerfile that the devcontainer uses to build the container image for local development and testing.
+
+
 # Stage 1
 FROM golang:1.24.2-alpine AS builder
 
@@ -29,7 +32,6 @@ RUN apk add --no-cache bash=5.2.37-r0 \
 
 WORKDIR /app
 
-# FIXME: missing the configs, I haven't decided how to deal with that yet.
 COPY --chown=sniper:sniper --from=builder --chmod=700 /build/query-sniper /app/
 
 USER sniper

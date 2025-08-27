@@ -13,6 +13,7 @@ import (
 
 	// Import the mysql driver functionality, but we don't use it directly.
 	_ "github.com/go-sql-driver/mysql"
+
 	"github.com/persona-id/query-sniper/internal/configuration"
 )
 
@@ -95,6 +96,7 @@ func Run(ctx context.Context, settings *configuration.Config) {
 		sniper, err := New(dbName, settings)
 		if err != nil {
 			slog.Error("Error in Run()", slog.Any("err", err))
+
 			continue
 		}
 
@@ -102,6 +104,7 @@ func Run(ctx context.Context, settings *configuration.Config) {
 
 		go func(ctx context.Context, s *QuerySniper) {
 			defer wg.Done()
+
 			s.Loop(ctx)
 		}(ctx, &sniper)
 	}
@@ -120,6 +123,7 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
+
 			return
 
 		case <-ticker.C:
@@ -141,7 +145,7 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 //   - []MysqlProcess: list of long running processes, or a blank list in the event of an error.
 //   - error: any errors that occur, or nil.
 func (sniper QuerySniper) GetLongRunningQueries() ([]MysqlProcess, error) {
-	rows, err := sniper.Connection.Query(sniper.LRQQuery)
+	rows, err := sniper.Connection.Query(sniper.LRQQuery) //nolint:noctx,rowserrcheck
 	if err != nil {
 		return []MysqlProcess{}, fmt.Errorf("error getting long running queries: %w", err)
 	}
@@ -180,7 +184,7 @@ func (sniper QuerySniper) KillProcesses(processes []MysqlProcess) int {
 
 		killQuery := fmt.Sprintf("KILL %d", process.ID)
 
-		_, err := sniper.Connection.Exec(killQuery)
+		_, err := sniper.Connection.Exec(killQuery) //nolint:noctx
 		if err != nil {
 			// We log here, rather than returning err, because we don't want to stop processing all of the other queries.
 			slog.Error("Error killing process ID",

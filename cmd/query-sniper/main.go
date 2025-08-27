@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
+
 	"github.com/persona-id/query-sniper/internal/configuration"
 	"github.com/persona-id/query-sniper/internal/sniper"
 )

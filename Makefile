@@ -1,43 +1,45 @@
-SHELL := /bin/bash
+BINARY := query-sniper
 
-# The name of the executable
-TARGET := 'query-sniper'
+.PHONY: help bench build check clean coverage coverage-html fmt lint run test
 
-# Use linker flags to provide version/build settings to the target.
-LDFLAGS=-ldflags "-s -w"
+default: help
 
-.PHONY: all build clean lint test coverage run docker snapshot release
+bench: ## Run benchmarks
+	@go test --race --shuffle=on --bench=. --benchmem ./...
 
-all: lint build
+build: ## Build the application
+	@go build -o $(BINARY) ./cmd/query-sniper
 
-$(TARGET):
-	@go build $(LDFLAGS) -o $(TARGET) cmd/query-sniper/main.go
+check: fmt lint test ## Run formatting (via golangci-lint), vetting (also via golangci-lint), linting, tests, benchmarks, and race detection
 
-build: clean $(TARGET)
-	@true
+clean: ## Clean build artifacts and coverage files
+	@go clean
+	@rm -rf dist coverage $(BINARY)
 
-clean:
-	@rm -rf $(TARGET) *.test *.out tmp/* coverage dist
-
-lint:
-	@go tool gofumpt -l -w .
-	@golangci-lint run --config=.golangci.yml --allow-parallel-runners # includes govet and gosec
-
-test:
+coverage: ## Generate test coverage report
 	@mkdir -p coverage
-	@go test ./... -v -shuffle=on -coverprofile coverage/coverage.out
+	@go test --race --shuffle=on --coverprofile=coverage/coverage.out ./...
+	@go tool cover --func=coverage/coverage.out
 
-coverage: test
-	@go tool cover -html=coverage/coverage.out
-
-run: build
-	@./$(TARGET)
+coverage-html: coverage ## Generate HTML coverage report and open in browser
+	@go tool cover --html=coverage/coverage.out -o coverage/coverage.html
+	@open coverage/coverage.html
 
 docker: clean lint
-	@docker build -f build/dev.Dockerfile . -t persona-id/query-sniper:latest
+	@docker build -f build/dev.Dockerfile -t persona-id/query-sniper:latest .
 
-snapshot: clean lint
-	@go tool goreleaser --snapshot --clean
+fmt: ## Format code
+	@golangci-lint-v2 fmt ./...
 
-release: clean lint
-	@go tool goreleaser --clean
+help: ## Show this help message
+	@echo "Available targets:"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+lint: ## Run golangci-lint
+	@golangci-lint-v2 run
+
+run: clean build ## Run the application. not really useful outside of a k8s cluster.
+	@./$(BINARY) --log.format=text
+
+test: ## Run tests
+	@go test --race --shuffle=on ./...

@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/yassinebenaid/godump"
 )
 
 type Config struct {
@@ -41,7 +40,8 @@ func Configure() (*Config, error) {
 	pflag.String("log.format", "JSON", "Format of the logs; valid values: [JSON OR plain]")
 
 	// read the config file, if it exists. if not, keep on truckin'
-	if err := viper.ReadInConfig(); err != nil {
+	err := viper.ReadInConfig()
+	if err != nil {
 		errVal := viper.ConfigFileNotFoundError{}
 		if ok := errors.As(err, &errVal); !ok {
 			return nil, fmt.Errorf("error reading config file: %w", err)
@@ -49,10 +49,10 @@ func Configure() (*Config, error) {
 	}
 
 	// load the credentials config and merge it into the existing configuration.
-	if file := os.Getenv("SNIPER_CREDS_FILE"); file != "" {
+	if file := os.Getenv("SNIPER_CREDS_FILE"); file != "" { //nolint:nestif
 		viper.SetConfigFile(file)
 
-		err := viper.MergeInConfig()
+		err = viper.MergeInConfig()
 		if err != nil {
 			return nil, fmt.Errorf("error merging credentials config: %w", err)
 		}
@@ -60,33 +60,19 @@ func Configure() (*Config, error) {
 		if creds := viper.GetViper().GetString("credentials"); creds != "" {
 			viper.SetConfigFile(creds)
 
-			err := viper.MergeInConfig()
+			err = viper.MergeInConfig()
 			if err != nil {
 				return nil, fmt.Errorf("error merging credentials config: %w", err)
 			}
 		}
 	}
 
-	pflag.Bool("show-config", false, "Dump the configuration for debugging")
-
-	err := pflag.CommandLine.MarkHidden("show-config")
-	if err != nil {
-		return nil, fmt.Errorf("error marking hidden flag: %w", err)
-	}
-
+	// parse the flags
 	pflag.Parse()
 
 	err = viper.BindPFlags(pflag.CommandLine)
 	if err != nil {
 		return nil, fmt.Errorf("error binding pflags: %w", err)
-	}
-
-	// we are only dumping the config if the secret flag show-config is specified, because the config
-	// contains the proxysql admin password
-	if viper.GetViper().GetBool("show-config") {
-		_ = godump.Dump(viper.GetViper().AllSettings())
-
-		os.Exit(0)
 	}
 
 	settings := &Config{} //nolint:exhaustruct

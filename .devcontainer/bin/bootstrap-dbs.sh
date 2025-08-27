@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-set -eoux pipefail
+set -eou pipefail
 
-mysql -hdb-primary -P3306 -uroot -proot << EOF
+# Bootstrap the databases. Add a replication user, enable GTID, and create a test table.
+mysql -hdev-db-primary -P3306 -uroot -proot << EOF
 ALTER USER 'test'@'%' IDENTIFIED WITH 'caching_sha2_password' BY 'test';
 GRANT REPLICATION SLAVE ON *.* TO 'test'@'%';
 FLUSH PRIVILEGES;
@@ -19,11 +20,26 @@ CREATE TABLE IF NOT EXISTS configs (
 INSERT INTO configs (config_key, config_value) VALUES ('org:persona', 'enabled:true');
 EOF
 
-mysql -hdb-replica -P3306 -uroot -proot << EOF
+# Start replication.
+mysql -hdev-db-replica0 -P3306 -uroot -proot << EOF
 STOP REPLICA;
 
 CHANGE REPLICATION SOURCE TO
-  SOURCE_HOST='db-primary',
+  SOURCE_HOST='dev-db-primary',
+  SOURCE_USER='test',
+  SOURCE_PASSWORD='test',
+  SOURCE_PORT=3306,
+  SOURCE_SSL=1,
+  SOURCE_AUTO_POSITION=1;
+
+START REPLICA;
+EOF
+
+mysql -hdev-db-replica1 -P3306 -uroot -proot << EOF
+STOP REPLICA;
+
+CHANGE REPLICATION SOURCE TO
+  SOURCE_HOST='dev-db-primary',
   SOURCE_USER='test',
   SOURCE_PASSWORD='test',
   SOURCE_PORT=3306,
