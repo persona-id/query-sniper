@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "mode": "auto",
+      "name": "Run Query Sniper (k8s)",
+      "program": "./cmd/query-sniper/main.go",
+      "request": "launch",
+      "type": "go",
+      "args": [
+        "--log.format", "text",
+        "--log.level", "debug",
+        "--log.include_caller", "true"
+      ],
+      "env": {
+        "CGO_ENABLED": "0",
+        "SNIPER_CONFIG_FILE": "./configs/kubernetes_config.yaml",
+        "SNIPER_CREDS_FILE": "./configs/kubernetes_credentials.yaml"
+      }
+    },
+    {
+      "cwd": "/workspace",
+      "mode": "auto",
+      "name": "Run Query Sniper (devcontainers)",
+      "program": "/workspace/cmd/query-sniper/main.go",
+      "request": "launch",
+      "type": "go",
+      "args": [
+        "--log.format", "text",
+        "--log.level", "debug",
+        "--log.include_caller", "true"
+      ],
+      "env": {
+        "CGO_ENABLED": "0",
+        "SNIPER_CONFIG_FILE": "/workspace/configs/config.yaml",
+        "SNIPER_CREDS_FILE": "/workspace/configs/credentials.yaml"
+      }
+    }
+  ]
+}

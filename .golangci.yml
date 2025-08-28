@@ -1,83 +1,14 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+
 version: "2"
-linters:
-  default: all
-  disable:
-    - exhaustruct
-    - lll
-    - testpackage
-    - varnamelen
-    - wsl
-    - godox # FIXME
-
-  settings:
-    cyclop:
-      max-complexity: 30
-      package-average: 0
-    ireturn:
-      allow:
-        - anon
-        - error
-        - empty
-        - stdlib
-    depguard:
-      rules:
-        main:
-          list-mode: strict
-          files:
-            - $all
-            - "!$test"
-          allow:
-            - $gostd
-            - github.com/persona-id/query-sniper/internal
-            - github.com/goforj/godump
-            - github.com/go-sql-driver/mysql
-            - github.com/lmittmann/tint
-            - github.com/spf13/viper
-            - github.com/spf13/pflag
-
-    funlen:
-      lines: -1
-      statements: 65
-    gocognit:
-      min-complexity: 40
-    goconst:
-      min-occurrences: 5
-    govet:
-      enable-all: true
-      disable:
-        - fieldalignment
-    tagliatelle:
-      case:
-        rules:
-          json: snake
-
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-    rules:
-      # We can't parallelize these tests because they share the same configuration map when the test runs
-      # and maps are not thread-safe.
-      - path: internal/configuration/configuration_test\.go
-        linters:
-          - paralleltest
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
 
 formatters:
   enable:
     - gofmt
     - gofumpt
     - goimports
+  exclusions:
+    generated: lax
   settings:
     gofmt:
       rewrite-rules:
@@ -90,8 +21,70 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/persona-id/query-sniper/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: all
+  disable:
+    - exhaustruct
+    - godox # FIXME
+    - lll
+    - testpackage
+    - varnamelen
+    - wsl # deprecated in favor of wsl_v5
   exclusions:
     generated: lax
+    paths:
+      - builtin$
+      - examples$
+      - third_party$
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
+  settings:
+    cyclop:
+      max-complexity: 30
+      package-average: 0
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/goforj/godump
+            - github.com/go-sql-driver/mysql
+            - github.com/lmittmann/tint
+            - github.com/persona-id/query-sniper/internal
+            - github.com/spf13/pflag
+            - github.com/spf13/viper
+          files:
+            - $all
+            - "!$test"
+          list-mode: strict
+    funlen:
+      lines: -1
+      statements: 65
+    gocognit:
+      min-complexity: 40
+    goconst:
+      min-occurrences: 5
+    govet:
+      enable-all: true
+    ireturn:
+      allow:
+        - anon
+        - empty
+        - error
+        - stdlib
+    tagliatelle:
+      case:
+        rules:
+          json: snake
 
 run:
   tests: true

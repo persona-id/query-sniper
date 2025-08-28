@@ -24,7 +24,7 @@ COPY . .
 RUN CGO_ENABLED="0" go build -o query-sniper cmd/query-sniper/main.go
 
 # Stage 2
-FROM alpine:3.21.3 AS runner
+FROM alpine:3.22.1 AS runner
 
 RUN apk add --no-cache bash=5.2.37-r0 \
   && addgroup sniper \

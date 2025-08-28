@@ -1,7 +1,5 @@
-# Go workspace file
-go.work
-
-# Binaries for programs and plugins
+# Binaries for programs, tests, and plugins
+/.devcontainer/certs
 /query-sniper
 /dist
 *.exe
@@ -9,8 +7,6 @@ go.work
 *.dll
 *.dylib
 *.so
-
-# Test binary, built with `go test -c`
 *.out
 *.test
 
