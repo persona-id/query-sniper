@@ -3,17 +3,19 @@ name: "Run Tests"
 on:
   pull_request:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: stable
           cache: false
-
       - name: Test
         run: go test --race --shuffle=on -v ./...
