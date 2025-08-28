@@ -4,7 +4,7 @@
 
 
 # Stage 1
-FROM golang:1.24.2-alpine AS builder
+FROM golang:1.25.0-alpine AS builder
 
 ARG BUILD_SHA
 ARG BUILD_TIME
