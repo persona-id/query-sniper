@@ -1,12 +1,43 @@
 #!/usr/bin/env bash
 set -eou pipefail
 
-# Connect to the primary db docker container by default.
-DB_HOST="dev-db-primary"
+# Usage: ./db [username] [instance]
+# username: root or web-us1 (default: root)
+# instance: primary, replica0 or replica1 (default: primary)
 
-# If ARGV1 is "replica" then connect to the replica container.
-if [ "$#" -ge 1 ] && [ "$1" = "replica" ]; then
-  DB_HOST="dev-db-replica"
+if [ "$#" -gt 2 ]; then
+  echo "Usage: $0 [username] [instance]"
+  echo "  username: root or web-us1 (default: root)"
+  echo "  instance: primary, replica0 or replica1 (default: primary)"
+  exit 1
 fi
 
-mysql -h$DB_HOST -uroot -proot test
+USERNAME="${1:-root}"
+INSTANCE="${2:-primary}"
+
+case "$INSTANCE" in
+  "primary")
+    DB_HOST="dev-db-primary"
+    ;;
+  "replica0")
+    DB_HOST="dev-db-replica0"
+    ;;
+  "replica1")
+    DB_HOST="dev-db-replica1"
+    ;;
+  *)
+    echo "Error: Invalid instance '$INSTANCE'. Must be 'primary', 'replica0' or 'replica1'"
+    exit 1
+    ;;
+esac
+
+case "$USERNAME" in
+  "root"|"web-us1")
+    ;;
+  *)
+    echo "Error: Invalid username '$USERNAME'. Must be 'root' or 'web-us1'"
+    exit 1
+    ;;
+esac
+
+mysql -h$DB_HOST -P3306 -u$USERNAME -p$USERNAME web-us1
