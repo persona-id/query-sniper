@@ -14,16 +14,16 @@ services:
       - seccomp:unconfined
     volumes:
       - .:/workspace:cached
-      - ./tmp/certs:/etc/mysql/certs
+      - ./.devcontainer/certs:/etc/mysql/certs
 
   dev-db-primary:
     image: mysql:8.0.36
     container_name: dev-db-primary
     environment:
       - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=test
-      - MYSQL_USER=test
-      - MYSQL_PASSWORD=test
+      - MYSQL_DATABASE=web-us1
+      - MYSQL_USER=replication
+      - MYSQL_PASSWORD=replication
     command:
       - --server-id=1
       - --ssl=1
@@ -37,7 +37,7 @@ services:
     tmpfs:
       - /var/lib/mysql
     volumes:
-      - ./tmp/certs:/etc/mysql/certs
+        - ./.devcontainer/certs:/etc/mysql/certs
 
   dev-db-replica0:
     image: mysql:8.0.36
@@ -60,7 +60,7 @@ services:
     tmpfs:
       - /var/lib/mysql
     volumes:
-      - ./tmp/certs:/etc/mysql/certs
+      - ./.devcontainer/certs:/etc/mysql/certs
 
   dev-db-replica1:
     image: mysql:8.0.36
@@ -83,12 +83,12 @@ services:
     tmpfs:
       - /var/lib/mysql
     volumes:
-      - ./tmp/certs:/etc/mysql/certs
+      - ./.devcontainer/certs:/etc/mysql/certs
 
   cert-gen:
     image: alpine
     volumes:
-      - ./tmp/certs:/certs
+      - ./.devcontainer/certs:/certs
     entrypoint:
       - /bin/sh
       - -c

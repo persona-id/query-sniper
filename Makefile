@@ -8,7 +8,7 @@ bench: ## Run benchmarks
 	@go test --race --shuffle=on --bench=. --benchmem ./...
 
 build: ## Build the application
-	@go build -o $(BINARY) ./cmd/query-sniper
+	@go build -trimpath -o $(BINARY) ./cmd/query-sniper
 
 check: fmt lint test ## Run formatting (via golangci-lint), vetting (also via golangci-lint), linting, tests, benchmarks, and race detection
 
@@ -36,10 +36,22 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 lint: ## Run golangci-lint
-	@golangci-lint-v2 run
+	@golangci-lint-v2 run --fix
 
-run: clean build ## Run the application. not really useful outside of a k8s cluster.
-	@./$(BINARY) --log.format=text
+# Runs the application in either the local environment (my laptop) or the devcontainer. The devcontainer will have databases
+# already setup and running. However, the local environment will have to be setup manually; I'm using the local-proxysql project
+# and am running a mysql/proxysql k8s cluster locally.
+run: clean build ## Run the application
+	@if [ "$$REMOTE_CONTAINERS" = "true" ] || [ "$$CODESPACES" = "true" ] || [ "$$VSCODE_REMOTE_CONTAINERS_SESSION" = "true" ]; then \
+		echo "Running in remote container..."; \
+		./$(BINARY) --log.format=text --log.level=debug; \
+	else \
+		echo "Running in local environment..."; \
+		SNIPER_CONFIG_FILE=configs/kubernetes_config.yaml SNIPER_CREDS_FILE=configs/kubernetes_credentials.yaml ./$(BINARY) --log.format=text --log.level=debug --log.include_caller=true; \
+	fi
+
+snapshot: clean lint ## Build a snapshot of the docker image using goreleaser
+	@goreleaser --snapshot --clean
 
 test: ## Run tests
 	@go test --race --shuffle=on ./...
