@@ -9,8 +9,10 @@ CREATE DATABASE IF NOT EXISTS \`web-us1\`;
 ALTER USER 'replication'@'%' IDENTIFIED WITH 'caching_sha2_password' BY 'replication';
 GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%';
 
--- sniper user is used by the process to find and kill long queries.
+-- sniper user is used by the process to find and kill long queries. needs explicit permissions on some performance schema tables.
 CREATE USER IF NOT EXISTS 'sniper'@'%' IDENTIFIED WITH 'caching_sha2_password' BY 'sniper';
+GRANT SELECT ON performance_schema.threads TO 'sniper'@'%';
+GRANT SELECT ON performance_schema.events_statements_current TO 'sniper'@'%';
 GRANT PROCESS, CONNECTION_ADMIN ON *.* TO 'sniper'@'%';
 
 -- web-us1 user is a test user.

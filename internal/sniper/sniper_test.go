@@ -24,16 +24,17 @@ func TestGenerateHunterQuery(t *testing.T) {
 				Schema:     "",
 			},
 			wantContains: []string{
-				"SELECT ID, DB, USER,STATE, COMMAND, TIME, INFO",
-				"FROM performance_schema.processlist",
-				"WHERE COMMAND NOT IN ('Sleep', 'Killed')",
-				"AND INFO NOT LIKE '%processlist%'",
-				"AND DB IS NOT NULL",
-				"AND TIME >= 30",
-				"ORDER BY TIME DESC",
+				"SELECT pl.id, pl.user, pl.host, pl.db, pl.command, pl.time, es.digest_text, es.current_schema",
+				"FROM performance_schema.processlist pl",
+				"INNER JOIN performance_schema.threads t ON t.processlist_id = pl.id",
+				"INNER JOIN performance_schema.events_statements_current es ON es.thread_id = t.thread_id",
+				"WHERE pl.command NOT IN ('sleep', 'killed')",
+				"AND pl.info NOT LIKE '%processlist%'",
+				"AND pl.time >= 30",
+				"ORDER BY pl.time DESC",
 			},
 			wantNotContain: []string{
-				"AND DB in (",
+				"AND pl.db in (",
 			},
 		},
 		{
@@ -43,14 +44,15 @@ func TestGenerateHunterQuery(t *testing.T) {
 				Schema:     "test_db",
 			},
 			wantContains: []string{
-				"SELECT ID, DB, USER,STATE, COMMAND, TIME, INFO",
-				"FROM performance_schema.processlist",
-				"WHERE COMMAND NOT IN ('Sleep', 'Killed')",
-				"AND INFO NOT LIKE '%processlist%'",
-				"AND DB IS NOT NULL",
-				"AND TIME >= 60",
-				"AND DB in ('test_db')",
-				"ORDER BY TIME DESC",
+				"SELECT pl.id, pl.user, pl.host, pl.db, pl.command, pl.time, es.digest_text, es.current_schema",
+				"FROM performance_schema.processlist pl",
+				"INNER JOIN performance_schema.threads t ON t.processlist_id = pl.id",
+				"INNER JOIN performance_schema.events_statements_current es ON es.thread_id = t.thread_id",
+				"WHERE pl.command NOT IN ('sleep', 'killed')",
+				"AND pl.info NOT LIKE '%processlist%'",
+				"AND pl.time >= 60",
+				"AND pl.db IN ('test_db')",
+				"ORDER BY pl.time DESC",
 			},
 		},
 		{
@@ -60,8 +62,8 @@ func TestGenerateHunterQuery(t *testing.T) {
 				Schema:     "production",
 			},
 			wantContains: []string{
-				"AND TIME >= 300", // 5 minutes = 300 seconds
-				"AND DB in ('production')",
+				"AND pl.time >= 300", // 5 minutes = 300 seconds
+				"AND pl.db IN ('production')",
 			},
 		},
 		{
@@ -71,7 +73,7 @@ func TestGenerateHunterQuery(t *testing.T) {
 				Schema:     "",
 			},
 			wantContains: []string{
-				"AND TIME >= 1", // 1.5 seconds truncated to 1
+				"AND pl.time >= 1", // 1.5 seconds truncated to 1
 			},
 		},
 	}
@@ -227,13 +229,13 @@ func TestCreateSniper(t *testing.T) {
 			}
 
 			if expectedConfig.Schema != "" {
-				expectedDBFilter := "AND DB in ('" + expectedConfig.Schema + "')"
+				expectedDBFilter := "AND pl.db IN ('" + expectedConfig.Schema + "')"
 				if !strings.Contains(got.LRQQuery, expectedDBFilter) {
 					t.Errorf("createSniper() LRQQuery missing DB filter for schema %q", expectedConfig.Schema)
 				}
 			}
 
-			expectedTimeFilter := "AND TIME >="
+			expectedTimeFilter := "AND pl.time >="
 			if !strings.Contains(got.LRQQuery, expectedTimeFilter) {
 				t.Error("createSniper() LRQQuery missing time filter")
 			}

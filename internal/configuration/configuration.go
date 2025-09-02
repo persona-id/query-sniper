@@ -45,8 +45,8 @@ type Config struct {
 	DryRun bool `mapstructure:"dry_run"`
 }
 
-// Configure loads the configuration from the specified file, and merges the credentials file into the configuration.
-// It also sets up the logger and logs the buildinfo.
+// Configure loads the configuration from the specified file, and merges the
+// credentials file into the configuration.
 func Configure() (*Config, error) {
 	if file := os.Getenv("SNIPER_CONFIG_FILE"); file != "" {
 		// if the config file path is specified in the env, load that

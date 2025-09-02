@@ -25,42 +25,42 @@ func TestHandleSignals(t *testing.T) {
 			name:              "SIGINT cancels context and returns",
 			signal:            syscall.SIGINT,
 			expectContextDone: true,
-			expectLogContains: "received shutdown signal, initiating graceful shutdown",
+			expectLogContains: "Received shutdown signal, initiating graceful shutdown",
 			expectReturn:      true,
 		},
 		{
 			name:              "SIGTERM cancels context and returns",
 			signal:            syscall.SIGTERM,
 			expectContextDone: true,
-			expectLogContains: "received shutdown signal, initiating graceful shutdown",
+			expectLogContains: "Received shutdown signal, initiating graceful shutdown",
 			expectReturn:      true,
 		},
 		{
 			name:              "SIGUSR1 logs but does not cancel context",
 			signal:            syscall.SIGUSR1,
 			expectContextDone: false,
-			expectLogContains: "received SIGUSR signal",
+			expectLogContains: "Received SIGUSR signal",
 			expectReturn:      false,
 		},
 		{
 			name:              "SIGUSR2 logs but does not cancel context",
 			signal:            syscall.SIGUSR2,
 			expectContextDone: false,
-			expectLogContains: "received SIGUSR signal",
+			expectLogContains: "Received SIGUSR signal",
 			expectReturn:      false,
 		},
 		{
 			name:              "SIGHUP logs but does not cancel context",
 			signal:            syscall.SIGHUP,
 			expectContextDone: false,
-			expectLogContains: "received SIGHUP signal",
+			expectLogContains: "Received SIGHUP signal",
 			expectReturn:      false,
 		},
 		{
 			name:              "unhandled signal logs warning",
 			signal:            syscall.SIGPIPE,
 			expectContextDone: false,
-			expectLogContains: "received unhandled signal",
+			expectLogContains: "Received unhandled signal",
 			expectReturn:      false,
 		},
 	}
@@ -82,7 +82,7 @@ func TestHandleSignals(t *testing.T) {
 			done := make(chan bool, 1)
 
 			go func() {
-				handleSignals(ctx, cancel, sigChan)
+				handleSignals(cancel, sigChan)
 
 				done <- true
 			}()
@@ -156,7 +156,7 @@ func TestHandleSignalsChannelClosed(t *testing.T) {
 	done := make(chan bool, 1)
 
 	go func() {
-		handleSignals(ctx, cancel, sigChan)
+		handleSignals(cancel, sigChan)
 
 		done <- true
 	}()
@@ -192,7 +192,7 @@ func TestHandleSignalsMultipleShutdownSignals(t *testing.T) {
 	done := make(chan bool, 1)
 
 	go func() {
-		handleSignals(ctx, cancel, sigChan)
+		handleSignals(cancel, sigChan)
 
 		done <- true
 	}()
@@ -214,7 +214,7 @@ func TestHandleSignalsMultipleShutdownSignals(t *testing.T) {
 	}
 
 	logOutput := buf.String()
-	if !containsString(logOutput, "received shutdown signal, initiating graceful shutdown") {
+	if !containsString(logOutput, "Received shutdown signal, initiating graceful shutdown") {
 		t.Errorf("expected log to contain shutdown message, but got: %s", logOutput)
 	}
 }
