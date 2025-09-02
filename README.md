@@ -275,7 +275,7 @@ GRANT SELECT ON performance_schema.threads TO 'sniper'@'%';
 GRANT SELECT ON performance_schema.events_statements_current TO 'sniper'@'%';
 
 -- For MySQL 8.0+, prefer CONNECTION_ADMIN over SUPER
-GRANT PROCESS, CONNECTION_ADMIN ON *.* TO 'sniper'@'%';
+GRANT CONNECTION_ADMIN, PROCESS ON *.* TO 'sniper'@'%';
 
 FLUSH PRIVILEGES;
 ```
