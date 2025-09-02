@@ -31,6 +31,8 @@ GRANT PROCESS, CONNECTION_ADMIN ON *.* TO 'sniper'@'%';
 FLUSH PRIVILEGES;
 ```
 
+_NB_: the sniper user can NOT kill queries owned by `root`.
+
 ## Requirements
 
 - Go 1.25+ (for building from source)
@@ -267,15 +269,13 @@ spec:
 Create a dedicated user for Query Sniper:
 
 ```sql
--- Create user
+-- Create user and grant access to the two extra tables we need
 CREATE USER 'sniper'@'%' IDENTIFIED BY 'secure_password';
-
--- Grant required permissions
-GRANT PROCESS ON *.* TO 'sniper'@'%';
-GRANT SUPER ON *.* TO 'sniper'@'%';  -- Or CONNECTION_ADMIN in MySQL 8.0+
+GRANT SELECT ON performance_schema.threads TO 'sniper'@'%';
+GRANT SELECT ON performance_schema.events_statements_current TO 'sniper'@'%';
 
 -- For MySQL 8.0+, prefer CONNECTION_ADMIN over SUPER
-GRANT CONNECTION_ADMIN ON *.* TO 'sniper'@'%';
+GRANT PROCESS, CONNECTION_ADMIN ON *.* TO 'sniper'@'%';
 
 FLUSH PRIVILEGES;
 ```
