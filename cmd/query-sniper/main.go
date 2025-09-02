@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/persona-id/query-sniper/internal/configuration"
+	"github.com/persona-id/query-sniper/internal/observability"
 	"github.com/persona-id/query-sniper/internal/sniper"
 )
 
@@ -28,6 +29,19 @@ func main() {
 	// setup the context and signal handling.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// initialize OpenTelemetry metrics
+	shutdownMetrics, err := observability.InitMetrics(ctx, "query-sniper")
+	if err != nil {
+		slog.Warn("failed to initialize metrics, continuing without telemetry", slog.Any("err", err))
+	} else {
+		defer func() {
+			err := shutdownMetrics(context.Background())
+			if err != nil {
+				slog.Error("error shutting down metrics", slog.Any("err", err))
+			}
+		}()
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2, syscall.SIGHUP)

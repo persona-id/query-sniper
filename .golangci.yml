@@ -59,6 +59,7 @@ linters:
             - github.com/goforj/godump
             - github.com/go-sql-driver/mysql
             - github.com/lmittmann/tint
+            - go.opentelemetry.io/otel
             - github.com/persona-id/query-sniper/internal
             - github.com/spf13/pflag
             - github.com/spf13/viper

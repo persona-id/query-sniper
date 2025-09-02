@@ -15,6 +15,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/persona-id/query-sniper/internal/configuration"
+	"github.com/persona-id/query-sniper/internal/observability"
 )
 
 // QuerySniper is a struct that represents a sniper.
@@ -182,6 +183,14 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 			slog.String("command", process.Command),
 			slog.String("info", process.Info.String),
 		)
+
+		// Record the metric for the killed query
+		reason := "long_running_query" // default reason
+		if process.Time > int(sniper.QueryLimit.Seconds()) {
+			reason = "query_timeout"
+		}
+
+		observability.RecordQueryKilled(ctx, sniper.Name, reason, process.Command, process.Time)
 
 		killed++
 	}
