@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
 
@@ -8,7 +7,9 @@ archives:
       group: root
       owner: root
     files:
-      - src: config.yaml
+      - src: configs/config.yaml
+        strip_parent: true
+      - src: configs/credentials.yaml
         strip_parent: true
     formats: [tar.gz]
     name_template: >-
@@ -26,14 +27,21 @@ before:
     - go generate ./...
 
 builds:
-  - main: ./cmd/query-sniper/main.go
+  - id: main
     env:
       - CGO_ENABLED=0
       - GO111MODULE=on
+    flags:
+      - -trimpath
     goos:
       - linux
     goarch:
       - amd64
+    ldflags:
+      - -s
+      - -w
+    main: ./cmd/query-sniper
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
 changelog:
   filters:
@@ -48,9 +56,20 @@ checksum:
   name_template: "checksums.txt"
 
 dockers:
-  - dockerfile: build/Dockerfile
+  - build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.licenses=BSD-3-Clause"
+      - "--label=org.opencontainers.image.source=https://github.com/persona-id/query-sniper"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.vendor=Persona Identities (https://withpersona.com)"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/amd64"
+    dockerfile: build/Dockerfile
     extra_files:
-      - config.yaml
+      - configs/config.yaml
+      - configs/credentials.yaml
     image_templates:
       - "ghcr.io/persona-id/{{.ProjectName}}:latest"
       - "ghcr.io/persona-id/{{.ProjectName}}:{{ .Tag }}"
@@ -61,7 +80,6 @@ metadata:
 
 release:
   footer: >-
-
     ---
 
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
@@ -70,3 +88,12 @@ report_sizes: true
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
+
+upx:
+  - enabled: false
+    ids: [main]
+    goos: [linux]
+    goarch: [amd64]
+    compress: best
+    lzma: true
+    brute: true

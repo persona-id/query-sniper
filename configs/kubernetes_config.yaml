@@ -13,17 +13,16 @@ default_config: &default_config # run the check every 1 second
 # List of databases to watch, and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.
 databases:
-  db-dev-primary:
-    <<: *default_config
-    address: dev-db-primary:3306
+  dev-primary:
+    address: mysql-us1-primary.mysql.svc.cluster.local:3306
     schema: web-us1
-  db-dev-replica0:
     <<: *default_config
-    address: dev-db-replica0:3306
+  dev-replica0:
+    address: mysql-us1-replica0.mysql.svc.cluster.local:3306
     schema: web-us1
-  db-dev-replica1:
     <<: *default_config
-    address: dev-db-replica1:3306
+  dev-replica1:
+    address: mysql-us1-replica1.mysql.svc.cluster.local:3306
     schema: web-us1
     interval: 10s
     long_query_limit: 60s
@@ -31,7 +30,7 @@ databases:
 
 # Logging configuration; this sets up slog
 log:
-  # The slog logger level to use. Valid options are "TRACE", "DEBUG", "INFO", "WARN", "ERROR", and "FATAL".
+  # The slog logger level to use. Valid options are "DEBUG", "INFO", "WARN", and "ERROR".
   level: INFO
   # The format of the log output. Valid options are "json" and anything else. If value isnt json, log output will be plain text and colorized.
   format: json
