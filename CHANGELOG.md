@@ -1,4 +1,14 @@
-## 0.1.0 - 2025-01-01
+## 0.1.1 - 2025-09-05
+
+- **Long Running Transactions**: add long-running transaction detection, in addition to the existing query detection
+- **Dry Run**: refactor `dry_run` from the global config to a per-database configuration
+- **Safe Mode**: implements the `--safe-mode` CLI flag for global dry-run override capability
+  - Adds comprehensive precedence logic (safe-mode overrides per-db settings)
+- **Enhance Logging**: includes transaction details and override status visibility
+- **Test Coverage**: add test coverage for all new features and precedence scenarios
+- **CI**: improve build system with semgrep security scanning and dependency updates
+
+## 0.1.0 - 2025-09-02
 
 Initial MVP release, with the following features:
 
@@ -74,7 +84,7 @@ Initial MVP release, with the following features:
   - Database name and process ID
   - User and execution time
   - Process state and command type
-  - Query text (with TODO for PII protection via `digest_text`)
+  - Query text, with PII protection via logging `digest_text` instead of `INFO`
 - **Error Resilience**: Continues processing other queries if individual kills fail
 - **Build Info Tracking**: Logs build information for debugging and deployment tracking
 - **Audit Trail**: Complete audit trail of all actions for compliance and troubleshooting

@@ -9,6 +9,9 @@ default_config: &default_config # run the check every 1 second
   long_query_limit: 2s
   # kill transactions that have been running for more than X seconds
   long_transaction_limit: 60s
+  # whether to run in dry run mode; if true, the sniper will only log the queries
+  # and transactions that are exceeding the thresholds, but not kill anything
+  dry_run: true
 
 # List of databases to watch, and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.

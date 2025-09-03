@@ -1,27 +1,19 @@
 # syntax=docker/dockerfile:1
-
 # This is the dockerfile that the devcontainer uses to build the container image for local development and testing.
-
 
 # Stage 1
 FROM golang:1.25.0-alpine AS builder
 
-ARG BUILD_SHA
-ARG BUILD_TIME
-ARG VERSION
-
 ENV GO111MODULE=on
+ENV CGO_ENABLED="0"
 
 # Set destination for COPY
 WORKDIR /build
 
-COPY go.sum go.mod ./
-
-RUN go mod download
-
 COPY . .
 
-RUN CGO_ENABLED="0" go build -o query-sniper cmd/query-sniper/main.go
+RUN go mod download \
+  && go build -o query-sniper cmd/query-sniper/main.go
 
 # Stage 2
 FROM alpine:3.22.1 AS runner

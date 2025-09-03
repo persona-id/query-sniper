@@ -35,6 +35,7 @@ type Config struct {
 		Interval             time.Duration `mapstructure:"interval"`
 		LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 		LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+		DryRun               bool          `mapstructure:"dry_run"`
 	} `mapstructure:"databases"`
 	CredentialFile string `mapstructure:"credential_file"`
 	Log            struct {
@@ -42,7 +43,7 @@ type Config struct {
 		Level         string `mapstructure:"level"`
 		IncludeCaller bool   `mapstructure:"include_caller"`
 	} `mapstructure:"log"`
-	DryRun bool `mapstructure:"dry_run"`
+	SafeMode bool `mapstructure:"safe_mode"`
 }
 
 // Configure loads the configuration from the specified file, and merges the
@@ -61,7 +62,7 @@ func Configure() (*Config, error) {
 
 	// setup the pflags for the application.
 	pflag.Bool("show-config", false, "Show the config; valid values are [true OR false], defaults to false")
-	pflag.Bool("dry-run", false, "Dry run the application; valid values are [true OR false], defaults to false")
+	pflag.Bool("safe-mode", false, "Enable safe mode globally (overrides all database dry_run settings)")
 	pflag.Bool("log.include_caller", false, "Include the caller in the logs; valid values are [true OR false], defaults to false")
 	pflag.String("log.format", "JSON", "Format of the logs; valid values are [JSON OR TEXT], defaults to JSON")
 	pflag.String("log.level", "INFO", "the log level for the agent; valid values are [TRACE, DEBUG, INFO, WARN, ERROR, FATAL], defaults to INFO")
@@ -141,6 +142,7 @@ func (settings *Config) Redact() Config {
 		Interval             time.Duration `mapstructure:"interval"`
 		LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 		LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+		DryRun               bool          `mapstructure:"dry_run"`
 	})
 
 	for name, db := range settings.Databases {

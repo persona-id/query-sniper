@@ -2,13 +2,17 @@
 # Path to the credentials files; this should be mounted in the pod as a secret from GCSM.
 credential_file: configs/credentials.yaml
 
-# Note: all limits are in seconds, and MUST have the 's' suffix
+# Anything in this block is global, but can be overridden by the database-specific configs.
+# NB: all limits are in seconds, and MUST have the 's' suffix.
 default_config: &default_config # run the check every 1 second
   interval: 1s
   # kill queries that have been running for more than X seconds
   long_query_limit: 2s
   # kill transactions that have been running for more than X seconds
-  long_transaction_limit: 60s
+  long_transaction_limit: 10s
+  # whether to run in dry run mode; if true, the sniper will only log the queries
+  # and transactions that are exceeding the thresholds, but not kill anything
+  dry_run: true
 
 # List of databases to watch, and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.

@@ -40,4 +40,4 @@ case "$USERNAME" in
     ;;
 esac
 
-mysql -h$DB_HOST -P3306 -u$USERNAME -p$USERNAME web-us1
+mysql -h$DB_HOST -P3306 --ssl-verify-server-cert=false -u$USERNAME -p$USERNAME web-us1
