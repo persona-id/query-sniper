@@ -1,14 +1,18 @@
 package sniper
 
+// We aren't doing any HTML templating here, it's solely to generate SQL queries;
+// text/template is safe for our current use cases. I've disabled the semgrep rule
+// for the import below.
 import (
 	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template
 	"time"
 
 	// need to import the mysql driver functionality, but we don't actually use it directly.
@@ -23,6 +27,7 @@ type QuerySniper struct {
 	Name             string
 	Schema           string
 	LRQQuery         string
+	LRTXNQuery       string
 	Interval         time.Duration
 	QueryLimit       time.Duration
 	TransactionLimit time.Duration
@@ -32,33 +37,61 @@ type QuerySniper struct {
 // MysqlProcess is a struct that represents a mysql process.
 // NB: this struct is sorted by datatype to satisfy the fieldalignment linter.
 type MysqlProcess struct {
-	Command       string         `db:"command"`        // the command being executed
-	DB            sql.NullString `db:"db"`             // the database the query is running in
-	User          sql.NullString `db:"user"`           // the user executing the query
-	Host          sql.NullString `db:"host"`           // the host of the connection
-	DigestText    sql.NullString `db:"digest_text"`    // the digested query text (params removed)
-	CurrentSchema sql.NullString `db:"current_schema"` // the current schema from events_statements_current
-	ID            int            `db:"id"`             // the id of the query
-	Time          int            `db:"time"`           // the length of time that the query has been running
+	Command    string         `db:"command"`        // the command being executed
+	Schema     sql.NullString `db:"current_schema"` // the database the query is running in
+	DigestText sql.NullString `db:"digest_text"`    // the digested query text (params removed)
+	User       sql.NullString `db:"user"`           // the user executing the query
+	ID         int            `db:"id"`             // the id of the query
+	Time       int            `db:"time"`           // the length of time that the query has been running
 }
 
-// hunterQueryTemplate is the template for the hunter query, which is used by
-// generateHunterQuery() to generate the query used to find long running queries
+// MysqlTransaction is a struct that represents a mysql transaction.
+// NB: this struct is sorted by datatype to satisfy the fieldalignment linter.
+type MysqlTransaction struct {
+	Command    string         `db:"command"`        // the command being executed
+	DigestText sql.NullString `db:"digest_text"`    // the digested query text (params removed)
+	Query      sql.NullString `db:"query"`          // the query that the transaction is running
+	Schema     sql.NullString `db:"current_schema"` // the database the transaction is running in
+	State      sql.NullString `db:"trx_state"`      // the state of the transaction
+	User       sql.NullString `db:"user"`           // the user executing the transaction
+	ID         int            `db:"trx_id"`         // the id of the transaction
+	ProcessID  int            `db:"process_id"`     // the process that the transaction is running in
+	Time       int            `db:"time"`           // the length of time that the transaction has been running
+}
+
+// longQueryTemplate is the template for the long running query hunter which is used by
+// generateHunterQueries() to generate the query used to find long running queries
 // for the specific sniper.
-const hunterQueryTemplate = `
-	SELECT pl.id, pl.user, pl.host, pl.db, pl.command, pl.time, es.digest_text, es.current_schema
+const longQueryTemplate = `
+	SELECT pl.id, pl.user, pl.db as current_schema, pl.command, pl.time, es.digest_text
 	FROM performance_schema.processlist pl
 	INNER JOIN performance_schema.threads t ON t.processlist_id = pl.id
 	INNER JOIN performance_schema.events_statements_current es ON es.thread_id = t.thread_id
 	WHERE pl.command NOT IN ('sleep', 'killed')
 	AND pl.info NOT LIKE '%processlist%'
-	{{if .TimeFilter}}
-		{{.TimeFilter}}
+	{{if .QueryTimeLimit}}
+		{{.QueryTimeLimit}}
 	{{end}}
 	{{if .DBFilter}}
 		{{.DBFilter}}
 	{{end}}
 	ORDER BY pl.time DESC`
+
+// longTXNTemplate is the template for the long running transaction hunter which is used by
+// generateHunterQueries() to generate the query used to find long running transactions
+// for the specific sniper.
+// FIXME: this might be overwrought. trx.thread_id == process_id? can we just kill the thread id?
+const longTXNTemplate = `
+	SELECT trx.trx_id, pl.id as process_id, trx.trx_state, TIMESTAMPDIFF(SECOND, trx.trx_started, NOW()) AS time, pl.user, pl.db as current_schema, es.digest_text
+	FROM INFORMATION_SCHEMA.INNODB_TRX trx
+	INNER JOIN performance_schema.processlist pl ON trx.trx_mysql_thread_id = pl.id
+	INNER JOIN performance_schema.threads t ON t.processlist_id = pl.id
+	INNER JOIN performance_schema.events_statements_current es ON es.thread_id = t.thread_id
+	WHERE TIMESTAMPDIFF(SECOND, trx.trx_started, NOW()) >= {{.TXNTimeLimit}}
+	{{if .DBFilter}}
+		{{.DBFilter}}
+	{{end}}
+	ORDER BY time DESC`
 
 // Run starts the sniper for each database in the settings. This is the main entry
 // point for the sniper process, and it is responsible for setting up all snipers
@@ -67,7 +100,7 @@ func Run(ctx context.Context, settings *configuration.Config) {
 	var wg sync.WaitGroup
 
 	for dbName := range settings.Databases {
-		sniper, err := createSniper(dbName, settings)
+		sniper, err := New(dbName, settings)
 		if err != nil {
 			slog.Error("Error in Run()",
 				slog.String("db_name", dbName),
@@ -86,6 +119,60 @@ func Run(ctx context.Context, settings *configuration.Config) {
 	wg.Wait()
 }
 
+// New creates a new sniper for the given database name and settings.
+// This is NOT the entry point for the sniper library.
+func New(name string, settings *configuration.Config) (QuerySniper, error) {
+	config := settings.Databases[name]
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/", config.Username, config.Password, config.Address)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return QuerySniper{}, fmt.Errorf("error opening database: %w", err)
+	}
+
+	// Global safe-mode overrides any per-database dry_run setting
+	// In other words, if settings.SafeMode is true, and a
+	// given sniper.Config.DryRun is set to false,
+	// the sniper will log and NOT kill queries.
+	dryRun := config.DryRun || settings.SafeMode
+
+	sniper := QuerySniper{
+		Connection:       db,
+		DryRun:           dryRun,
+		Interval:         config.Interval,
+		LRQQuery:         "",
+		LRTXNQuery:       "",
+		Name:             name,
+		QueryLimit:       config.LongQueryLimit,
+		Schema:           config.Schema,
+		TransactionLimit: config.LongTransactionLimit,
+	}
+
+	query, txn, err := sniper.hunterQueries()
+	if err != nil {
+		return QuerySniper{}, fmt.Errorf("error generating hunter queries: %w", err)
+	}
+
+	sniper.LRQQuery = query
+	sniper.LRTXNQuery = txn
+
+	slog.Info("Created new sniper",
+		slog.String("name", sniper.Name),
+		slog.String("address", config.Address),
+		slog.String("username", config.Username),
+		slog.String("schema", sniper.Schema),
+		slog.Duration("interval", sniper.Interval),
+		slog.Duration("query_limit", sniper.QueryLimit),
+		slog.Duration("transaction_limit", sniper.TransactionLimit),
+		slog.Bool("dry_run", sniper.DryRun),
+		slog.Bool("safe_mode_active", settings.SafeMode),
+		slog.String("lrq_query", sniper.LRQQuery),
+		slog.String("lrtxn_query", sniper.LRTXNQuery),
+	)
+
+	return sniper, nil
+}
+
 // Loop is the main loop for the sniper. It will find all long running queries and kill them.
 func (sniper QuerySniper) Loop(ctx context.Context) {
 	ticker := time.NewTicker(sniper.Interval)
@@ -93,6 +180,8 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			slog.Debug("Context done, stopping ticker", slog.String("db", sniper.Name))
+
 			ticker.Stop()
 
 			return
@@ -129,7 +218,7 @@ func (sniper QuerySniper) FindLongRunningQueries(ctx context.Context) ([]MysqlPr
 	for rows.Next() {
 		var process MysqlProcess
 
-		err = rows.Scan(&process.ID, &process.User, &process.Host, &process.DB, &process.Command, &process.Time, &process.DigestText, &process.CurrentSchema)
+		err = rows.Scan(&process.ID, &process.User, &process.Schema, &process.Command, &process.Time, &process.DigestText)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning row: %w", err)
 		}
@@ -145,14 +234,60 @@ func (sniper QuerySniper) FindLongRunningQueries(ctx context.Context) ([]MysqlPr
 	return processes, nil
 }
 
-// KillProcesses kills the given processes.
+// FindLongRunningTransactions finds long running transactions based on the configured transaction limit.
+func (sniper QuerySniper) FindLongRunningTransactions(ctx context.Context) ([]MysqlTransaction, error) {
+	rows, err := sniper.Connection.QueryContext(ctx, sniper.LRTXNQuery)
+	if err != nil {
+		return nil, fmt.Errorf("error getting long running transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []MysqlTransaction
+
+	for rows.Next() {
+		var transaction MysqlTransaction
+
+		err = rows.Scan(&transaction.ID, &transaction.ProcessID, &transaction.State, &transaction.Time, &transaction.User, &transaction.Schema, &transaction.DigestText)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning row: %w", err)
+		}
+
+		transactions = append(transactions, transaction)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return []MysqlTransaction{}, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
+	return transactions, nil
+}
+
+// KillProcesses kills the given processes, or logs them if in dry run mode.
 func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlProcess) int {
 	killed := 0
 
-	// TODO: add support for dry run mode here.
-
 	for _, process := range processes {
 		if process.ID <= 0 {
+			// im not entirely sure how this would happen
+			continue
+		}
+
+		if sniper.DryRun {
+			// In dry run mode, only log what would be killed
+			slog.Info("DRY RUN - Would kill mysql process",
+				slog.String("db", sniper.Name),
+				slog.String("user", process.User.String),
+				slog.Bool("dry_run", sniper.DryRun),
+				slog.Int("time", process.Time),
+				slog.Int("process_id", process.ID),
+				slog.String("command", process.Command),
+				slog.String("schema", process.Schema.String),
+				slog.String("digest_text", process.DigestText.String),
+			)
+
+			killed++
+
 			continue
 		}
 
@@ -160,15 +295,15 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 
 		_, err := sniper.Connection.ExecContext(ctx, killQuery)
 		if err != nil {
-			// We log here, rather than returning err, because we don't want to stop processing all of the other queries.
+			// we log here, rather than returning err, because we don't want to stop processing all of the other queries.
 			slog.Error("Error killing mysql process",
 				slog.String("db", sniper.Name),
 				slog.String("user", process.User.String),
-				slog.String("host", process.Host.String),
+				slog.Bool("dry_run", sniper.DryRun),
 				slog.Int("time", process.Time),
 				slog.Int("process_id", process.ID),
 				slog.String("command", process.Command),
-				slog.String("current_schema", process.CurrentSchema.String),
+				slog.String("schema", process.Schema.String),
 				slog.String("digest_text", process.DigestText.String),
 				slog.Any("err", err),
 			)
@@ -180,11 +315,11 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 		slog.Info("Killed mysql process",
 			slog.String("db", sniper.Name),
 			slog.String("user", process.User.String),
-			slog.String("host", process.Host.String),
+			slog.Bool("dry_run", sniper.DryRun),
 			slog.Int("time", process.Time),
 			slog.Int("process_id", process.ID),
 			slog.String("command", process.Command),
-			slog.String("current_schema", process.CurrentSchema.String),
+			slog.String("schema", process.Schema.String),
 			slog.String("digest_text", process.DigestText.String),
 		)
 
@@ -194,63 +329,23 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 	return killed
 }
 
-// createSniper creates a new sniper for the given database name and settings.
-// This is NOT the entry point for the sniper library.
-func createSniper(name string, settings *configuration.Config) (QuerySniper, error) {
-	config := settings.Databases[name]
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/", config.Username, config.Password, config.Address)
-
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		return QuerySniper{}, fmt.Errorf("error opening database: %w", err)
-	}
-
-	sniper := QuerySniper{
-		Connection:       db,
-		DryRun:           settings.DryRun,
-		Interval:         config.Interval,
-		LRQQuery:         "",
-		Name:             name,
-		QueryLimit:       config.LongQueryLimit,
-		Schema:           config.Schema,
-		TransactionLimit: config.LongTransactionLimit,
-	}
-
-	query, err := sniper.generateHunterQuery()
-	if err != nil {
-		return QuerySniper{}, fmt.Errorf("error generating hunter query: %w", err)
-	}
-
-	sniper.LRQQuery = query
-
-	slog.Info("Created new sniper",
-		slog.String("name", sniper.Name),
-		slog.String("address", config.Address),
-		slog.String("username", config.Username),
-		slog.String("schema", sniper.Schema),
-		slog.Duration("interval", sniper.Interval),
-		slog.Duration("query_limit", sniper.QueryLimit),
-		slog.Duration("transaction_limit", sniper.TransactionLimit),
-		slog.String("hunt_query", sniper.LRQQuery),
-	)
-
-	return sniper, nil
-}
-
-// generateHunterQuery generates the query used to find long running queries
+// hunterQueries generates the query used to find long running queries
 // for the specific sniper.
-func (sniper QuerySniper) generateHunterQuery() (string, error) {
-	tmpl := template.Must(
-		template.New("query hunter").Parse(hunterQueryTemplate),
+func (sniper QuerySniper) hunterQueries() (string, string, error) {
+	// compile the query to detect long running queries
+	lrqTmpl := template.Must(
+		template.New("query hunter").Parse(longQueryTemplate),
 	)
 
 	type QueryParams struct {
-		TimeFilter string
-		DBFilter   string
+		DBFilter       string
+		QueryTimeLimit string
+		TXNTimeLimit   string
 	}
 
 	params := QueryParams{
-		TimeFilter: fmt.Sprintf("AND pl.time >= %d", int(sniper.QueryLimit.Seconds())),
+		QueryTimeLimit: fmt.Sprintf("AND pl.time >= %d", int(sniper.QueryLimit.Seconds())),
+		TXNTimeLimit:   strconv.Itoa(int(sniper.TransactionLimit.Seconds())),
 	}
 
 	if sniper.Schema != "" {
@@ -259,12 +354,26 @@ func (sniper QuerySniper) generateHunterQuery() (string, error) {
 
 	var queryBytes bytes.Buffer
 
-	err := tmpl.Execute(&queryBytes, params)
+	err := lrqTmpl.Execute(&queryBytes, params)
 	if err != nil {
-		return "", fmt.Errorf("error executing template: %w", err)
+		return "", "", fmt.Errorf("error executing template: %w", err)
 	}
 
-	result := strings.Join(strings.Fields(queryBytes.String()), " ")
+	query := strings.Join(strings.Fields(queryBytes.String()), " ")
 
-	return result, nil
+	// compile the query to detect long running transactions
+	txnTmpl := template.Must(
+		template.New("query hunter").Parse(longTXNTemplate),
+	)
+
+	var txnBytes bytes.Buffer
+
+	err = txnTmpl.Execute(&txnBytes, params)
+	if err != nil {
+		return "", "", fmt.Errorf("error executing template: %w", err)
+	}
+
+	txn := strings.Join(strings.Fields(txnBytes.String()), " ")
+
+	return query, txn, nil
 }

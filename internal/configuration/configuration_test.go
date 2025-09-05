@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-//nolint:gocognit,maintidx
+//nolint:gocognit,maintidx,gocyclo,cyclop
 func TestConfigure(t *testing.T) {
 	tests := []struct {
 		expectedError error
@@ -345,6 +345,61 @@ databases:
 				}
 			},
 		},
+		{
+			name: "success with safe-mode flag enabled",
+			setupEnv: func(t *testing.T, tempDir string) {
+				t.Helper()
+
+				configPath := filepath.Join(tempDir, "config.yaml")
+				credsPath := filepath.Join(tempDir, "creds.yaml")
+				t.Setenv("SNIPER_CONFIG_FILE", configPath)
+				t.Setenv("SNIPER_CREDS_FILE", credsPath)
+			},
+			setupFiles: func(t *testing.T, tempDir string) {
+				t.Helper()
+
+				configContent := `
+log:
+  level: INFO
+  format: JSON
+  include_caller: false
+databases:
+  primary:
+    address: 127.0.0.1:3306
+    schema: test_db
+    interval: 30s
+    long_query_limit: 60s
+    long_transaction_limit: 120s
+    dry_run: false
+`
+				//nolint:gosec
+				credsContent := `
+databases:
+  primary:
+    username: test_user
+    password: test_pass
+`
+				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = os.WriteFile(filepath.Join(tempDir, "creds.yaml"), []byte(credsContent), 0o600)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, config *Config) {
+				t.Helper()
+				if config.Databases["primary"].Username != "test_user" {
+					t.Errorf("Expected username test_user, got %v", config.Databases["primary"].Username)
+				}
+				if config.SafeMode {
+					t.Errorf("Expected SafeMode false (default), got %v", config.SafeMode)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -492,7 +547,6 @@ func TestConfig_Redact(t *testing.T) {
 
 	originalConfig := &Config{
 		CredentialFile: "test_creds.yaml",
-		DryRun:         false,
 		Log: struct {
 			Format        string `mapstructure:"format"`
 			Level         string `mapstructure:"level"`
@@ -510,6 +564,7 @@ func TestConfig_Redact(t *testing.T) {
 			Interval             time.Duration `mapstructure:"interval"`
 			LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 			LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+			DryRun               bool          `mapstructure:"dry_run"`
 		}{
 			"primary": {
 				Address:              "127.0.0.1:3306",
@@ -519,6 +574,7 @@ func TestConfig_Redact(t *testing.T) {
 				Interval:             30 * time.Second,
 				LongQueryLimit:       60 * time.Second,
 				LongTransactionLimit: 120 * time.Second,
+				DryRun:               false,
 			},
 			"replica": {
 				Address:              "127.0.0.1:3307",
@@ -528,6 +584,7 @@ func TestConfig_Redact(t *testing.T) {
 				Interval:             45 * time.Second,
 				LongQueryLimit:       90 * time.Second,
 				LongTransactionLimit: 180 * time.Second,
+				DryRun:               false,
 			},
 		},
 	}
@@ -579,11 +636,6 @@ func TestConfig_Redact(t *testing.T) {
 			redactedConfig.CredentialFile, originalConfig.CredentialFile)
 	}
 
-	if redactedConfig.DryRun != originalConfig.DryRun {
-		t.Errorf("DryRun not preserved: got %v, want %v",
-			redactedConfig.DryRun, originalConfig.DryRun)
-	}
-
 	if redactedConfig.Log.Format != originalConfig.Log.Format {
 		t.Errorf("Log.Format not preserved: got %v, want %v",
 			redactedConfig.Log.Format, originalConfig.Log.Format)
@@ -611,6 +663,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -620,6 +673,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -643,6 +697,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -652,6 +707,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -669,6 +725,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -678,6 +735,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -695,6 +753,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "", // empty address
@@ -704,6 +763,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -721,6 +781,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1", // missing port
@@ -730,6 +791,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -747,6 +809,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -756,6 +819,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -773,6 +837,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -782,6 +847,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             0, // invalid interval
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -799,6 +865,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -808,6 +875,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       0, // invalid query limit
 						LongTransactionLimit: 120 * time.Second,
+						DryRun:               false,
 					},
 				},
 			},
@@ -825,6 +893,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -834,6 +903,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: -1 * time.Second, // invalid transaction limit
+						DryRun:               false,
 					},
 				},
 			},
@@ -851,6 +921,7 @@ func TestConfig_Validate(t *testing.T) {
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
 						Address:              "127.0.0.1:3306",
@@ -860,6 +931,7 @@ func TestConfig_Validate(t *testing.T) {
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 0, // zero is allowed
+						DryRun:               false,
 					},
 				},
 			},

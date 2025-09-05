@@ -2,7 +2,7 @@
 set -eou pipefail
 
 # Bootstrap the databases. Add a replication user, enable GTID, and create a test table.
-mysql -hdev-db-primary -P3306 -uroot -proot << EOF
+mysql -hdev-db-primary -P3306 --ssl-verify-server-cert=false -uroot -proot << EOF
 CREATE DATABASE IF NOT EXISTS \`web-us1\`;
 
 -- replication user for the replication process.
@@ -42,7 +42,7 @@ INSERT INTO config_flags (config_key, config_value) VALUES
 EOF
 
 # Start replication.
-mysql -hdev-db-replica0 -P3306 -uroot -proot << EOF
+mysql -hdev-db-replica0 -P3306 --ssl-verify-server-cert=false -uroot -proot << EOF
 STOP REPLICA;
 
 CHANGE REPLICATION SOURCE TO
@@ -56,7 +56,7 @@ CHANGE REPLICATION SOURCE TO
 START REPLICA;
 EOF
 
-mysql -hdev-db-replica1 -P3306 -uroot -proot << EOF
+mysql -hdev-db-replica1 -P3306 --ssl-verify-server-cert=false -uroot -proot << EOF
 STOP REPLICA;
 
 CHANGE REPLICATION SOURCE TO

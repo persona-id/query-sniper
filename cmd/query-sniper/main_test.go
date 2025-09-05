@@ -1,4 +1,4 @@
-//nolint:paralleltest
+//nolint:paralleltest,gocognit
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -67,156 +68,168 @@ func TestHandleSignals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf safeBuffer
+			synctest.Test(t, func(t *testing.T) {
+				t.Helper()
 
-			logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
-				Level: slog.LevelDebug,
-			}))
-			slog.SetDefault(logger)
+				var buf safeBuffer
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+				logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+					Level: slog.LevelDebug,
+				}))
+				slog.SetDefault(logger)
 
-			sigChan := make(chan os.Signal, 1)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 
-			done := make(chan bool, 1)
+				sigChan := make(chan os.Signal, 1)
 
-			go func() {
-				handleSignals(cancel, sigChan)
+				done := make(chan bool, 1)
 
-				done <- true
-			}()
+				go func() {
+					handleSignals(cancel, sigChan)
 
-			sigChan <- tt.signal
+					done <- true
+				}()
 
-			if tt.expectReturn {
-				select {
-				case <-done:
-				case <-time.After(100 * time.Millisecond):
-					t.Error("handleSignals should have returned after shutdown signal")
+				sigChan <- tt.signal
+
+				if tt.expectReturn {
+					select {
+					case <-done:
+					case <-time.After(100 * time.Millisecond):
+						t.Error("handleSignals should have returned after shutdown signal")
+					}
+				} else {
+					select {
+					case <-done:
+						t.Error("handleSignals should not have returned for non-shutdown signal")
+
+					case <-time.After(50 * time.Millisecond):
+					}
 				}
-			} else {
-				select {
-				case <-done:
-					t.Error("handleSignals should not have returned for non-shutdown signal")
 
-				case <-time.After(50 * time.Millisecond):
+				if tt.expectContextDone {
+					select {
+					case <-ctx.Done():
+					case <-time.After(100 * time.Millisecond):
+						t.Error("context should have been cancelled")
+					}
+				} else {
+					select {
+					case <-ctx.Done():
+						t.Error("context should not have been cancelled")
+
+					case <-time.After(50 * time.Millisecond):
+					}
 				}
-			}
 
-			if tt.expectContextDone {
-				select {
-				case <-ctx.Done():
-				case <-time.After(100 * time.Millisecond):
-					t.Error("context should have been cancelled")
+				logOutput := buf.String()
+				if logOutput == "" {
+					t.Error("expected log output but got none")
 				}
-			} else {
-				select {
-				case <-ctx.Done():
-					t.Error("context should not have been cancelled")
 
-				case <-time.After(50 * time.Millisecond):
+				if tt.expectLogContains != "" && !containsString(logOutput, tt.expectLogContains) {
+					t.Errorf("expected log to contain %q, but got: %s", tt.expectLogContains, logOutput)
 				}
-			}
 
-			logOutput := buf.String()
-			if logOutput == "" {
-				t.Error("expected log output but got none")
-			}
+				if !containsString(logOutput, tt.signal.String()) {
+					t.Errorf("expected log to contain signal name %q, but got: %s", tt.signal.String(), logOutput)
+				}
 
-			if tt.expectLogContains != "" && !containsString(logOutput, tt.expectLogContains) {
-				t.Errorf("expected log to contain %q, but got: %s", tt.expectLogContains, logOutput)
-			}
-
-			if !containsString(logOutput, tt.signal.String()) {
-				t.Errorf("expected log to contain signal name %q, but got: %s", tt.signal.String(), logOutput)
-			}
-
-			if !tt.expectReturn {
-				close(sigChan)
-				<-done
-			}
+				if !tt.expectReturn {
+					close(sigChan)
+					<-done
+				}
+			})
 		})
 	}
 }
 
 func TestHandleSignalsChannelClosed(t *testing.T) {
-	var buf safeBuffer
+	synctest.Test(t, func(t *testing.T) {
+		t.Helper()
 
-	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
+		var buf safeBuffer
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+		logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+		slog.SetDefault(logger)
 
-	sigChan := make(chan os.Signal, 1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	done := make(chan bool, 1)
+		sigChan := make(chan os.Signal, 1)
 
-	go func() {
-		handleSignals(cancel, sigChan)
+		done := make(chan bool, 1)
 
-		done <- true
-	}()
+		go func() {
+			handleSignals(cancel, sigChan)
 
-	close(sigChan)
+			done <- true
+		}()
 
-	select {
-	case <-done:
-	case <-time.After(100 * time.Millisecond):
-		t.Error("handleSignals should have returned when signal channel was closed")
-	}
+		close(sigChan)
 
-	select {
-	case <-ctx.Done():
-		t.Error("context should not have been cancelled when channel was closed")
-	case <-time.After(50 * time.Millisecond):
-	}
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			t.Error("handleSignals should have returned when signal channel was closed")
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Error("context should not have been cancelled when channel was closed")
+		case <-time.After(50 * time.Millisecond):
+		}
+	})
 }
 
 func TestHandleSignalsMultipleShutdownSignals(t *testing.T) {
-	var buf safeBuffer
+	synctest.Test(t, func(t *testing.T) {
+		t.Helper()
 
-	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
+		var buf safeBuffer
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+		logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+		slog.SetDefault(logger)
 
-	sigChan := make(chan os.Signal, 2)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	done := make(chan bool, 1)
+		sigChan := make(chan os.Signal, 2)
 
-	go func() {
-		handleSignals(cancel, sigChan)
+		done := make(chan bool, 1)
 
-		done <- true
-	}()
+		go func() {
+			handleSignals(cancel, sigChan)
 
-	sigChan <- syscall.SIGINT
+			done <- true
+		}()
 
-	sigChan <- syscall.SIGTERM
+		sigChan <- syscall.SIGINT
 
-	select {
-	case <-done:
-	case <-time.After(100 * time.Millisecond):
-		t.Error("handleSignals should have returned after first shutdown signal")
-	}
+		sigChan <- syscall.SIGTERM
 
-	select {
-	case <-ctx.Done():
-	case <-time.After(100 * time.Millisecond):
-		t.Error("context should have been cancelled")
-	}
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			t.Error("handleSignals should have returned after first shutdown signal")
+		}
 
-	logOutput := buf.String()
-	if !containsString(logOutput, "Received shutdown signal, initiating graceful shutdown") {
-		t.Errorf("expected log to contain shutdown message, but got: %s", logOutput)
-	}
+		select {
+		case <-ctx.Done():
+		case <-time.After(100 * time.Millisecond):
+			t.Error("context should have been cancelled")
+		}
+
+		logOutput := buf.String()
+		if !containsString(logOutput, "Received shutdown signal, initiating graceful shutdown") {
+			t.Errorf("expected log to contain shutdown message, but got: %s", logOutput)
+		}
+	})
 }
 
 type safeBuffer struct {
