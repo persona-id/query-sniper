@@ -638,6 +638,9 @@ func TestSniperLoopSlowQueryDetection(t *testing.T) {
 		// Channel to track completion
 		loopDone := make(chan struct{})
 
+		// Track checks performed
+		var completedChecks int
+
 		// Start the sniper loop in a goroutine
 		go func() {
 			defer close(loopDone)
@@ -651,29 +654,21 @@ func TestSniperLoopSlowQueryDetection(t *testing.T) {
 			for {
 				select {
 				case <-ctx.Done():
-					t.Logf("Sniper loop stopped due to context cancellation after %d checks", checkCount)
+					completedChecks = checkCount
 
 					return
 
 				case <-ticker.C:
 					checkCount++
-					t.Logf("Sniper check #%d at virtualized time", checkCount)
 
 					// Signal that we've started checking
 					if checkCount == 1 {
 						close(checkStarted)
 					}
 
-					// Simulate finding slow queries after the first few checks
-					if checkCount >= 2 {
-						// In a real scenario, this would call sniper.FindLongRunningQueries()
-						// and then sniper.KillProcesses() for any queries > 10 seconds
-						t.Logf("Would detect and handle slow queries on check #%d", checkCount)
-					}
-
 					// Stop after 6 checks (30 seconds of virtualized time)
 					if checkCount >= 6 {
-						t.Logf("Completed %d checks, stopping sniper loop", checkCount)
+						completedChecks = checkCount
 
 						return
 					}
@@ -690,11 +685,13 @@ func TestSniperLoopSlowQueryDetection(t *testing.T) {
 		}
 
 		// Wait for the loop to complete or timeout
-		select {
-		case <-loopDone:
-			t.Log("Sniper loop completed successfully")
-		case <-ctx.Done():
-			t.Log("Test completed due to context timeout (expected)")
+		<-loopDone
+
+		// Log results after goroutine has completed
+		if completedChecks >= 6 {
+			t.Logf("Sniper loop completed successfully after %d checks", completedChecks)
+		} else {
+			t.Logf("Sniper loop stopped early after %d checks due to context timeout", completedChecks)
 		}
 
 		// The test should complete almost instantly despite using 30+ seconds of virtualized time
@@ -790,7 +787,8 @@ func TestSniperIntervalTiming(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 				defer cancel()
 
-				checkTimes := make([]time.Time, 0)
+				var checkTimes []time.Time
+
 				done := make(chan struct{})
 
 				go func() {
@@ -805,7 +803,6 @@ func TestSniperIntervalTiming(t *testing.T) {
 							return
 						case now := <-ticker.C:
 							checkTimes = append(checkTimes, now)
-							t.Logf("Check at: %v", now)
 
 							// Stop after 3 checks
 							if len(checkTimes) >= 3 {
@@ -817,6 +814,11 @@ func TestSniperIntervalTiming(t *testing.T) {
 
 				// Wait for completion
 				<-done
+
+				// Log check times after goroutine completes
+				for i, checkTime := range checkTimes {
+					t.Logf("Check %d at: %v", i+1, checkTime)
+				}
 
 				// Verify we got the expected number of checks
 				if len(checkTimes) < 3 {
@@ -855,7 +857,7 @@ func TestSniperGracefulShutdown(t *testing.T) {
 
 		shutdownComplete := make(chan struct{})
 
-		checkCount := 0
+		var checkCount int
 
 		// Start the sniper loop
 		go func() {
@@ -867,13 +869,10 @@ func TestSniperGracefulShutdown(t *testing.T) {
 			for {
 				select {
 				case <-ctx.Done():
-					t.Logf("Sniper received shutdown signal after %d checks", checkCount)
-
 					return
 
 				case <-ticker.C:
 					checkCount++
-					t.Logf("Sniper check #%d", checkCount)
 				}
 			}
 		}()
@@ -888,7 +887,8 @@ func TestSniperGracefulShutdown(t *testing.T) {
 		// Wait for shutdown to complete
 		select {
 		case <-shutdownComplete:
-			t.Log("Sniper shut down gracefully")
+			// Log results after goroutine has completed
+			t.Logf("Sniper shut down gracefully after %d checks", checkCount)
 		case <-time.After(5 * time.Second): // Virtualized time
 			t.Fatal("Sniper failed to shut down within expected time")
 		}
