@@ -2,7 +2,7 @@
 # This is the dockerfile that the devcontainer uses to build the container image for local development and testing.
 
 # Stage 1
-FROM golang:1.25.0-alpine AS builder
+FROM golang:1.25.1-alpine AS builder
 
 ENV GO111MODULE=on
 ENV CGO_ENABLED="0"
