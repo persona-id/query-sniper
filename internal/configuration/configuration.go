@@ -43,7 +43,7 @@ type Config struct {
 		Level         string `mapstructure:"level"`
 		IncludeCaller bool   `mapstructure:"include_caller"`
 	} `mapstructure:"log"`
-	SafeMode bool `mapstructure:"safe_mode"`
+	SafeMode bool `mapstructure:"safe-mode"`
 }
 
 // Configure loads the configuration from the specified file, and merges the
@@ -62,7 +62,7 @@ func Configure() (*Config, error) {
 
 	// setup the pflags for the application.
 	pflag.Bool("show-config", false, "Show the config; valid values are [true OR false], defaults to false")
-	pflag.Bool("safe-mode", false, "Enable safe mode globally (overrides all database dry_run settings)")
+	pflag.Bool("safe-mode", false, "Enable safe mode globally, and will override all database dry_run settings; valid values are [true OR false], defaults to false")
 	pflag.Bool("log.include_caller", false, "Include the caller in the logs; valid values are [true OR false], defaults to false")
 	pflag.String("log.format", "JSON", "Format of the logs; valid values are [JSON OR TEXT], defaults to JSON")
 	pflag.String("log.level", "INFO", "the log level for the agent; valid values are [TRACE, DEBUG, INFO, WARN, ERROR, FATAL], defaults to INFO")

@@ -509,6 +509,14 @@ func TestConfigFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			viper.Reset()
 
+			// Reset pflags for each test to avoid "flag redefined" errors
+			originalCommandLine := pflag.CommandLine
+			pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
+
+			t.Cleanup(func() {
+				pflag.CommandLine = originalCommandLine
+			})
+
 			currentDir, err := os.Getwd()
 			if err != nil {
 				t.Fatal(err)
