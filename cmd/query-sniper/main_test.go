@@ -12,6 +12,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"go.uber.org/goleak"
 )
 
 func TestHandleSignals(t *testing.T) {
@@ -282,4 +284,9 @@ func findSubstring(s, substr string) bool {
 	}
 
 	return false
+}
+
+// TestMain is used to verify that there are no leaks during the tests.
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }

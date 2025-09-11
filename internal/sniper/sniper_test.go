@@ -8,6 +8,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/persona-id/query-sniper/internal/configuration"
 )
 
@@ -984,4 +986,9 @@ func TestMysqlTransactionStruct(t *testing.T) {
 	if transaction.Query.String != "SELECT * FROM large_table WHERE id > 1000" {
 		t.Errorf("expected Query to be 'SELECT * FROM large_table WHERE id > 1000', got %q", transaction.Query.String)
 	}
+}
+
+// TestMain is used to verify that there are no leaks during the tests.
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }

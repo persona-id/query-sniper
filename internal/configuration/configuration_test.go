@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/goleak"
 )
 
 //nolint:gocognit,maintidx,gocyclo,cyclop
@@ -966,4 +967,9 @@ func TestConfig_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMain is used to verify that there are no leaks during the tests.
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }
