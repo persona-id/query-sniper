@@ -19,15 +19,22 @@ default_config: &default_config # run the check every 1 second
 databases:
   db-dev-primary:
     <<: *default_config
-    address: dev-db-primary:3306
+    address: dev-db-primary
+    port: 3306
     schema: web-us1
+    ssl_cert: /etc/mysql/certs/dev-db-primary-cert.crt
+    ssl_key: /etc/mysql/certs/dev-db-primary-key.key
+    ssl_ca: /etc/mysql/certs/dev-db-primary-ca.crt
+
   db-dev-replica0:
     <<: *default_config
-    address: dev-db-replica0:3306
+    address: dev-db-replica0
+    port: 3306
     schema: web-us1
   db-dev-replica1:
     <<: *default_config
-    address: dev-db-replica1:3306
+    address: dev-db-replica1
+    port: 3306
     schema: web-us1
     interval: 10s
     long_query_limit: 60s

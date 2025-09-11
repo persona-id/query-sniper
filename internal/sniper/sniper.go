@@ -123,7 +123,13 @@ func Run(ctx context.Context, settings *configuration.Config) {
 // This is NOT the entry point for the sniper library.
 func New(name string, settings *configuration.Config) (QuerySniper, error) {
 	config := settings.Databases[name]
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/", config.Username, config.Password, config.Address)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/", config.Username, config.Password, config.Address, config.Port)
+
+	// if the ssl fields are set, add the ssl parameters to the dsn
+	// all three fields must be set for ssl to be enabled
+	if config.SSLCert != "" && config.SSLKey != "" && config.SSLCA != "" {
+		dsn += fmt.Sprintf("?tls=true&tls_cert=%s&tls_key=%s&tls_ca=%s", config.SSLCert, config.SSLKey, config.SSLCA)
+	}
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -159,6 +165,7 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 	slog.Info("Created new sniper",
 		slog.String("name", sniper.Name),
 		slog.String("address", config.Address),
+		slog.Int("port", config.Port),
 		slog.String("username", config.Username),
 		slog.String("schema", sniper.Schema),
 		slog.Duration("interval", sniper.Interval),

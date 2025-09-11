@@ -8,19 +8,22 @@ log:
 
 databases:
   test_primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_schema
     long_query_limit: 60s
     interval: 10s
   # replica has the same settings as primary, as it's used in loadbalancing.
   test_replica:
-    address: 127.0.0.1:3307
+    address: 127.0.0.1
+    port: 3307
     schema: test_schema
     long_query_limit: 60s
     interval: 10s
   # the analytics database is used for longer running queries, so make the limits more lenient.
   test_analytics:
-    address: 127.0.0.1:3308
+    address: 127.0.0.1
+    port: 3308
     schema: test_schema
     long_query_limit: 120s
     long_transaction_limit: 240s
