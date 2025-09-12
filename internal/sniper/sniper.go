@@ -125,9 +125,15 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 	config := settings.Databases[name]
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/", config.Username, config.Password, config.Address, config.Port)
 
-	// if the ssl fields are set, add the ssl parameters to the dsn
-	// all three fields must be set for ssl to be enabled
-	if config.SSLCert != "" && config.SSLKey != "" && config.SSLCA != "" {
+	// Configure SSL/TLS based on provided certificates:
+	// - CA-only mode: Just ssl_ca for encrypted connections without client auth
+	// - Mutual TLS mode: All three (ssl_ca, ssl_cert, ssl_key) for mutual authentication
+	// - Invalid partial combinations (cert without CA, etc.) are ignored
+	if config.SSLCA != "" && config.SSLCert == "" && config.SSLKey == "" {
+		// CA-only mode: Basic encrypted connection
+		dsn += "?tls=true&tls_ca=" + config.SSLCA
+	} else if config.SSLCert != "" && config.SSLKey != "" && config.SSLCA != "" {
+		// Mutual TLS mode: Full mutual authentication
 		dsn += fmt.Sprintf("?tls=true&tls_cert=%s&tls_key=%s&tls_ca=%s", config.SSLCert, config.SSLKey, config.SSLCA)
 	}
 

@@ -22,6 +22,7 @@ var (
 	ErrInvalidInterval         = errors.New("invalid interval")
 	ErrInvalidQueryLimit       = errors.New("invalid query limit")
 	ErrInvalidTransactionLimit = errors.New("invalid transaction limit")
+	ErrInvalidSSLConfig        = errors.New("invalid SSL configuration")
 )
 
 // This struct is sorted by datatype to satisfy the fieldalignment linter rule.
@@ -197,6 +198,28 @@ func (settings *Config) Validate() error {
 
 		if db.LongTransactionLimit < 0 {
 			return fmt.Errorf("long_transaction_limit %d is invalid for database %s: %w", db.LongTransactionLimit, name, ErrInvalidTransactionLimit)
+		}
+
+		// Validate SSL certificate configuration
+		sslCA := db.SSLCA != ""
+		sslCert := db.SSLCert != ""
+		sslKey := db.SSLKey != ""
+
+		// Valid combinations:
+		// 1. No SSL fields (all false) - unencrypted connection
+		// 2. Only ssl_ca (CA-only mode)
+		// 3. All three (mutual TLS mode)
+		validNoSSL := !sslCA && !sslCert && !sslKey
+		validCAOnly := sslCA && !sslCert && !sslKey
+		validMutualTLS := sslCA && sslCert && sslKey
+
+		if !validNoSSL && !validCAOnly && !validMutualTLS {
+			return fmt.Errorf("invalid SSL configuration for database %s: %w. "+
+				"Valid combinations are: "+
+				"(1) no SSL fields for unencrypted connection, "+
+				"(2) only ssl_ca for CA-only mode, or "+
+				"(3) all three (ssl_ca, ssl_cert, ssl_key) for mutual TLS",
+				name, ErrInvalidSSLConfig)
 		}
 	}
 

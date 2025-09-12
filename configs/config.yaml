@@ -13,6 +13,14 @@ default_config: &default_config # run the check every 1 second
   # whether to run in dry run mode; if true, the sniper will only log the queries
   # and transactions that are exceeding the thresholds, but not kill anything
   dry_run: true
+  # SSL configuration (optional, depending on the database needs).
+  # Valid combinations are:
+  #   - CA-only mode: Just ssl_ca for encrypted connections without client auth
+  #   - Mutual TLS mode: All three (ssl_ca, ssl_cert, ssl_key) for mutual authentication
+  #   - Invalid partial combinations (cert without CA, etc.) result in an error
+  # ssl_cert: /etc/mysql/certs/dev-db-primary-cert.crt
+  # ssl_key: /etc/mysql/certs/dev-db-primary-key.key
+  # ssl_ca: /etc/mysql/certs/dev-db-primary-ca.crt
 
 # List of databases to watch, and various configuration options for them. The login creds
 # are stored in the file defined above, and the keys to each database entry must match.
@@ -22,9 +30,6 @@ databases:
     address: dev-db-primary
     port: 3306
     schema: web-us1
-    ssl_cert: /etc/mysql/certs/dev-db-primary-cert.crt
-    ssl_key: /etc/mysql/certs/dev-db-primary-key.key
-    ssl_ca: /etc/mysql/certs/dev-db-primary-ca.crt
 
   db-dev-replica0:
     <<: *default_config

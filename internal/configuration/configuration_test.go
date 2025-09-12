@@ -1180,6 +1180,302 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr:     false,
 			expectedErr: nil,
 		},
+		{
+			name: "valid SSL configuration - no SSL fields (unencrypted)",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// All SSL fields empty - should be valid
+						SSLCA:   "",
+						SSLCert: "",
+						SSLKey:  "",
+					},
+				},
+			},
+			wantErr:     false,
+			expectedErr: nil,
+		},
+		{
+			name: "valid SSL configuration - CA only mode",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Only CA set - should be valid (CA-only mode)
+						SSLCA:   "/path/to/ca.pem",
+						SSLCert: "",
+						SSLKey:  "",
+					},
+				},
+			},
+			wantErr:     false,
+			expectedErr: nil,
+		},
+		{
+			name: "valid SSL configuration - mutual TLS mode",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// All three SSL fields set - should be valid (mutual TLS)
+						SSLCA:   "/path/to/ca.pem",
+						SSLCert: "/path/to/cert.pem",
+						SSLKey:  "/path/to/key.pem",
+					},
+				},
+			},
+			wantErr:     false,
+			expectedErr: nil,
+		},
+		{
+			name: "invalid SSL configuration - cert only",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Only cert set - should be invalid
+						SSLCA:   "",
+						SSLCert: "/path/to/cert.pem",
+						SSLKey:  "",
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidSSLConfig,
+		},
+		{
+			name: "invalid SSL configuration - key only",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Only key set - should be invalid
+						SSLCA:   "",
+						SSLCert: "",
+						SSLKey:  "/path/to/key.pem",
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidSSLConfig,
+		},
+		{
+			name: "invalid SSL configuration - cert and key without CA",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Cert and key without CA - should be invalid
+						SSLCA:   "",
+						SSLCert: "/path/to/cert.pem",
+						SSLKey:  "/path/to/key.pem",
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidSSLConfig,
+		},
+		{
+			name: "invalid SSL configuration - cert and CA without key",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Cert and CA without key - should be invalid
+						SSLCA:   "/path/to/ca.pem",
+						SSLCert: "/path/to/cert.pem",
+						SSLKey:  "",
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidSSLConfig,
+		},
+		{
+			name: "invalid SSL configuration - key and CA without cert",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
+						DryRun:               false,
+						// Key and CA without cert - should be invalid
+						SSLCA:   "/path/to/ca.pem",
+						SSLCert: "",
+						SSLKey:  "/path/to/key.pem",
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidSSLConfig,
+		},
 	}
 
 	for _, tt := range tests {
