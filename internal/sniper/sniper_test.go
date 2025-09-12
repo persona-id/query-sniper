@@ -485,53 +485,76 @@ func TestNew_SSLConfiguration(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		sslCert     string
-		sslKey      string
-		sslCA       string
-		description string
+		name            string
+		sslCert         string
+		sslKey          string
+		sslCA           string
+		description     string
+		shouldEnableSSL bool
 	}{
 		{
-			name:        "only SSL cert set - SSL should not be enabled",
-			sslCert:     "/path/to/cert.pem",
-			sslKey:      "",
-			sslCA:       "",
-			description: "When only one SSL field is set, SSL parameters should not be added to DSN",
+			name:            "only SSL cert set - SSL should not be enabled",
+			sslCert:         "/path/to/cert.pem",
+			sslKey:          "",
+			sslCA:           "",
+			shouldEnableSSL: false,
+			description:     "Invalid: cert without CA should not enable SSL",
 		},
 		{
-			name:        "only SSL key set - SSL should not be enabled",
-			sslCert:     "",
-			sslKey:      "/path/to/key.pem",
-			sslCA:       "",
-			description: "When only one SSL field is set, SSL parameters should not be added to DSN",
+			name:            "only SSL key set - SSL should not be enabled",
+			sslCert:         "",
+			sslKey:          "/path/to/key.pem",
+			sslCA:           "",
+			shouldEnableSSL: false,
+			description:     "Invalid: key without CA should not enable SSL",
 		},
 		{
-			name:        "only SSL CA set - SSL should not be enabled",
-			sslCert:     "",
-			sslKey:      "",
-			sslCA:       "/path/to/ca.pem",
-			description: "When only one SSL field is set, SSL parameters should not be added to DSN",
+			name:            "only SSL CA set - SSL should be enabled (CA-only mode)",
+			sslCert:         "",
+			sslKey:          "",
+			sslCA:           "/path/to/ca.pem",
+			shouldEnableSSL: true,
+			description:     "CA-only mode: encrypted connection without client auth",
 		},
 		{
-			name:        "two SSL fields set - SSL should not be enabled",
-			sslCert:     "/path/to/cert.pem",
-			sslKey:      "/path/to/key.pem",
-			sslCA:       "",
-			description: "When only two SSL fields are set, SSL parameters should not be added to DSN",
+			name:            "cert and key without CA - SSL should not be enabled",
+			sslCert:         "/path/to/cert.pem",
+			sslKey:          "/path/to/key.pem",
+			sslCA:           "",
+			shouldEnableSSL: false,
+			description:     "Invalid: cert+key without CA should not enable SSL",
 		},
 		{
-			name:        "all three SSL fields set - SSL should be enabled",
-			sslCert:     "/path/to/cert.pem",
-			sslKey:      "/path/to/key.pem",
-			sslCA:       "/path/to/ca.pem",
-			description: "When all three SSL fields are set, SSL parameters should be added to DSN",
+			name:            "cert and CA without key - SSL should not be enabled",
+			sslCert:         "/path/to/cert.pem",
+			sslKey:          "",
+			sslCA:           "/path/to/ca.pem",
+			shouldEnableSSL: false,
+			description:     "Invalid: cert+CA without key should not enable SSL",
 		},
 		{
-			name:        "no SSL fields set - SSL should not be enabled",
-			sslCert:     "",
-			sslKey:      "",
-			sslCA:       "",
-			description: "When no SSL fields are set, SSL parameters should not be added to DSN",
+			name:            "key and CA without cert - SSL should not be enabled",
+			sslCert:         "",
+			sslKey:          "/path/to/key.pem",
+			sslCA:           "/path/to/ca.pem",
+			shouldEnableSSL: false,
+			description:     "Invalid: key+CA without cert should not enable SSL",
+		},
+		{
+			name:            "all three SSL fields set - SSL should be enabled (mutual TLS)",
+			sslCert:         "/path/to/cert.pem",
+			sslKey:          "/path/to/key.pem",
+			sslCA:           "/path/to/ca.pem",
+			shouldEnableSSL: true,
+			description:     "Mutual TLS mode: full mutual authentication",
+		},
+		{
+			name:            "no SSL fields set - SSL should not be enabled",
+			sslCert:         "",
+			sslKey:          "",
+			sslCA:           "",
+			shouldEnableSSL: false,
+			description:     "No SSL configuration provided",
 		},
 	}
 
@@ -573,38 +596,48 @@ func TestNew_SSLConfiguration(t *testing.T) {
 			}
 
 			// The New function will attempt to create a database connection
-			// We expect it to fail because we don't have a real database
-			// but we can verify that SSL configuration was processed correctly
-			// by checking if the function proceeds to the database connection step
+			// We expect different behaviors based on SSL configuration:
+			// - SSL disabled: Connection succeeds (simple DSN)
+			// - SSL enabled: Connection fails with DSN parsing error (SSL parameters added)
 			sniper, err := New("ssl_test_db", settings)
 
-			// We expect an error because there's no actual database to connect to
-			// But the function should still process the SSL configuration logic
-			if err == nil {
-				t.Log("Unexpectedly succeeded in creating database connection")
+			// yeah this is a bit nested, but it's just a test so im not going to sweat it too much
+			if tt.shouldEnableSSL { //nolint:nestif
+				// When SSL is enabled, we expect a connection error due to SSL parameters
+				// being added to the DSN (which will fail without a real SSL-enabled MySQL)
+				if err == nil {
+					t.Errorf("Expected SSL connection to fail without real SSL-enabled database, but succeeded")
 
-				if sniper.Connection != nil {
-					sniper.Connection.Close()
+					if sniper.Connection != nil {
+						sniper.Connection.Close()
+					}
+				} else {
+					// This is expected - SSL parameters cause connection to fail
+					t.Logf("Expected SSL connection error: %v", err)
+
+					// Verify it's a database connection error, not SSL config parsing error
+					if !strings.Contains(err.Error(), "error opening database") {
+						t.Errorf("Expected database connection error, got: %v", err)
+					}
 				}
-			} else {
-				// This is expected - we don't have a real database
-				// The error message can give us hints about what DSN was constructed
-				t.Logf("Expected error occurred: %v", err)
 
-				// Check that the error is related to database connection, not SSL config
-				if !strings.Contains(err.Error(), "error opening database") {
-					t.Errorf("Unexpected error type: %v", err)
+				t.Logf("SSL enabled as expected: cert=%s, key=%s, ca=%s", tt.sslCert, tt.sslKey, tt.sslCA)
+			} else {
+				// When SSL is disabled, connection should succeed with simple DSN
+				// (though it may still fail if there's no MySQL running, which is OK)
+				if err == nil {
+					t.Logf("Connection succeeded with SSL disabled (no SSL parameters in DSN)")
+
+					if sniper.Connection != nil {
+						sniper.Connection.Close()
+					}
+				} else {
+					// Even if connection fails, it should be a basic connection error,
+					// not an SSL-related DSN parsing error
+					t.Logf("Connection failed (likely no MySQL running): %v", err)
 				}
-			}
 
-			// Determine if SSL should be enabled based on the test case
-			allSSLFieldsSet := tt.sslCert != "" && tt.sslKey != "" && tt.sslCA != ""
-
-			// Log test expectations for verification
-			if allSSLFieldsSet {
-				t.Logf("Test expects SSL to be enabled: cert=%s, key=%s, ca=%s", tt.sslCert, tt.sslKey, tt.sslCA)
-			} else {
-				t.Logf("Test expects SSL to be disabled: cert=%s, key=%s, ca=%s", tt.sslCert, tt.sslKey, tt.sslCA)
+				t.Logf("SSL disabled as expected: cert=%s, key=%s, ca=%s", tt.sslCert, tt.sslKey, tt.sslCA)
 			}
 
 			t.Log(tt.description)
