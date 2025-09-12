@@ -44,7 +44,8 @@ log:
   include_caller: false
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -97,7 +98,8 @@ log:
   format: TEXT
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -150,7 +152,8 @@ log:
   level: INFO
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -180,7 +183,8 @@ log:
   level: INFO
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -249,7 +253,8 @@ log:
   level: INFO
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -327,7 +332,8 @@ databases:
   primary:
     username: creds_user
     password: creds_pass
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -366,7 +372,8 @@ log:
   include_caller: false
 databases:
   primary:
-    address: 127.0.0.1:3306
+    address: 127.0.0.1
+    port: 3306
     schema: test_db
     interval: 30s
     long_query_limit: 60s
@@ -398,6 +405,72 @@ databases:
 				}
 				if config.SafeMode {
 					t.Errorf("Expected SafeMode false (default), got %v", config.SafeMode)
+				}
+			},
+		},
+		{
+			name: "success with SSL configuration",
+			setupEnv: func(t *testing.T, tempDir string) {
+				t.Helper()
+
+				configPath := filepath.Join(tempDir, "config.yaml")
+				credsPath := filepath.Join(tempDir, "creds.yaml")
+				t.Setenv("SNIPER_CONFIG_FILE", configPath)
+				t.Setenv("SNIPER_CREDS_FILE", credsPath)
+			},
+			setupFiles: func(t *testing.T, tempDir string) {
+				t.Helper()
+
+				configContent := `
+log:
+  level: INFO
+  format: JSON
+  include_caller: false
+databases:
+  primary:
+    address: 127.0.0.1
+    port: 3306
+    schema: test_db
+    ssl_cert: /path/to/cert.crt
+    ssl_key: /path/to/key.key
+    ssl_ca: /path/to/ca.crt
+    interval: 30s
+    long_query_limit: 60s
+    long_transaction_limit: 120s
+    dry_run: false
+`
+				//nolint:gosec
+				credsContent := `
+databases:
+  primary:
+    username: ssl_user
+    password: ssl_pass
+`
+				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = os.WriteFile(filepath.Join(tempDir, "creds.yaml"), []byte(credsContent), 0o600)
+				if err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, config *Config) {
+				t.Helper()
+				primary := config.Databases["primary"]
+				if primary.SSLCert != "/path/to/cert.crt" {
+					t.Errorf("Expected SSL cert /path/to/cert.crt, got %v", primary.SSLCert)
+				}
+				if primary.SSLKey != "/path/to/key.key" {
+					t.Errorf("Expected SSL key /path/to/key.key, got %v", primary.SSLKey)
+				}
+				if primary.SSLCA != "/path/to/ca.crt" {
+					t.Errorf("Expected SSL CA /path/to/ca.crt, got %v", primary.SSLCA)
+				}
+				if primary.Username != "ssl_user" {
+					t.Errorf("Expected username ssl_user, got %v", primary.Username)
 				}
 			},
 		},
@@ -482,8 +555,12 @@ func TestConfigFile(t *testing.T) {
 				}
 
 				primary := config.Databases["test_primary"]
-				if got := primary.Address; got != "127.0.0.1:3306" {
-					t.Errorf("Primary DB Address = %v, want %v", got, "127.0.0.1:3306")
+				if got := primary.Address; got != "127.0.0.1" {
+					t.Errorf("Primary DB Address = %v, want %v", got, "127.0.0.1")
+				}
+
+				if got := primary.Port; got != 3306 {
+					t.Errorf("Primary DB Port = %v, want %v", got, 3306)
 				}
 
 				if got := primary.Username; got != "primary_user" {
@@ -568,31 +645,43 @@ func TestConfig_Redact(t *testing.T) {
 		Databases: map[string]struct {
 			Address              string        `mapstructure:"address"`
 			Schema               string        `mapstructure:"schema"`
+			SSLCert              string        `mapstructure:"ssl_cert"`
+			SSLKey               string        `mapstructure:"ssl_key"`
+			SSLCA                string        `mapstructure:"ssl_ca"`
 			Username             string        `mapstructure:"username"`
 			Password             string        `mapstructure:"password"`
 			Interval             time.Duration `mapstructure:"interval"`
 			LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 			LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+			Port                 int           `mapstructure:"port"`
 			DryRun               bool          `mapstructure:"dry_run"`
 		}{
 			"primary": {
-				Address:              "127.0.0.1:3306",
+				Address:              "127.0.0.1",
 				Schema:               "test_db",
+				SSLCert:              "/path/to/cert.crt",
+				SSLKey:               "/path/to/key.key",
+				SSLCA:                "/path/to/ca.crt",
 				Username:             "test_user",
 				Password:             "secret_password",
 				Interval:             30 * time.Second,
 				LongQueryLimit:       60 * time.Second,
 				LongTransactionLimit: 120 * time.Second,
+				Port:                 3306,
 				DryRun:               false,
 			},
 			"replica": {
-				Address:              "127.0.0.1:3307",
+				Address:              "127.0.0.1",
 				Schema:               "test_db",
+				SSLCert:              "/path/to/replica-cert.crt",
+				SSLKey:               "/path/to/replica-key.key",
+				SSLCA:                "/path/to/replica-ca.crt",
 				Username:             "replica_user",
 				Password:             "another_secret",
 				Interval:             45 * time.Second,
 				LongQueryLimit:       90 * time.Second,
 				LongTransactionLimit: 180 * time.Second,
+				Port:                 3307,
 				DryRun:               false,
 			},
 		},
@@ -620,9 +709,14 @@ func TestConfig_Redact(t *testing.T) {
 	}
 
 	primary := redactedConfig.Databases["primary"]
-	if primary.Address != "127.0.0.1:3306" {
+	if primary.Address != "127.0.0.1" {
 		t.Errorf("Address not preserved: got %v, want %v",
-			primary.Address, "127.0.0.1:3306")
+			primary.Address, "127.0.0.1")
+	}
+
+	if primary.Port != 3306 {
+		t.Errorf("Port not preserved: got %v, want %v",
+			primary.Port, 3306)
 	}
 
 	if primary.Username != "test_user" {
@@ -649,6 +743,27 @@ func TestConfig_Redact(t *testing.T) {
 		t.Errorf("Log.Format not preserved: got %v, want %v",
 			redactedConfig.Log.Format, originalConfig.Log.Format)
 	}
+
+	// Verify SSL fields are preserved (not redacted)
+	if redactedConfig.Databases["primary"].SSLCert != "/path/to/cert.crt" {
+		t.Errorf("SSL cert not preserved: got %v, want %v",
+			redactedConfig.Databases["primary"].SSLCert, "/path/to/cert.crt")
+	}
+
+	if redactedConfig.Databases["primary"].SSLKey != "/path/to/key.key" {
+		t.Errorf("SSL key not preserved: got %v, want %v",
+			redactedConfig.Databases["primary"].SSLKey, "/path/to/key.key")
+	}
+
+	if redactedConfig.Databases["primary"].SSLCA != "/path/to/ca.crt" {
+		t.Errorf("SSL CA not preserved: got %v, want %v",
+			redactedConfig.Databases["primary"].SSLCA, "/path/to/ca.crt")
+	}
+
+	if redactedConfig.Databases["replica"].SSLCert != "/path/to/replica-cert.crt" {
+		t.Errorf("Replica SSL cert not preserved: got %v, want %v",
+			redactedConfig.Databases["replica"].SSLCert, "/path/to/replica-cert.crt")
+	}
 }
 
 //nolint:maintidx
@@ -667,21 +782,26 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						Port:                 3306,
 						DryRun:               false,
 					},
 				},
@@ -701,15 +821,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "", // empty username
 						Password:             "secret_password",
@@ -729,15 +854,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "", // empty password
@@ -757,11 +887,15 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
@@ -780,32 +914,37 @@ func TestConfig_Validate(t *testing.T) {
 			expectedErr: ErrEmptyAddress,
 		},
 		{
-			name: "address without port",
+			name: "invalid port - zero",
 			config: &Config{
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1", // missing port
+						Address:              "127.0.0.1",
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 120 * time.Second,
+						Port:                 0, // invalid port
 						DryRun:               false,
 					},
 				},
 			},
 			wantErr:     true,
-			expectedErr: ErrInvalidAddressFormat,
+			expectedErr: ErrInvalidPort,
 		},
 		{
 			name: "empty schema",
@@ -813,15 +952,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "", // empty schema
 						Username:             "test_user",
 						Password:             "secret_password",
@@ -841,15 +985,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
@@ -869,15 +1018,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
@@ -897,15 +1051,20 @@ func TestConfig_Validate(t *testing.T) {
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
@@ -920,26 +1079,100 @@ func TestConfig_Validate(t *testing.T) {
 			expectedErr: ErrInvalidTransactionLimit,
 		},
 		{
-			name: "zero transaction limit allowed",
+			name: "invalid port - too high",
 			config: &Config{
 				Databases: map[string]struct {
 					Address              string        `mapstructure:"address"`
 					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
 					Username             string        `mapstructure:"username"`
 					Password             string        `mapstructure:"password"`
 					Interval             time.Duration `mapstructure:"interval"`
 					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
 					DryRun               bool          `mapstructure:"dry_run"`
 				}{
 					"primary": {
-						Address:              "127.0.0.1:3306",
+						Address:              "127.0.0.1",
+						Schema:               "test_db",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
+						Port:                 70000, // invalid port - too high
+						DryRun:               false,
+					},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrInvalidPort,
+		},
+		{
+			name: "zero transaction limit allowed",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Port:                 3306,
 						Schema:               "test_db",
 						Username:             "test_user",
 						Password:             "secret_password",
 						Interval:             30 * time.Second,
 						LongQueryLimit:       60 * time.Second,
 						LongTransactionLimit: 0, // zero is allowed
+						DryRun:               false,
+					},
+				},
+			},
+			wantErr:     false,
+			expectedErr: nil,
+		},
+		{
+			name: "SSL fields are optional",
+			config: &Config{
+				Databases: map[string]struct {
+					Address              string        `mapstructure:"address"`
+					Schema               string        `mapstructure:"schema"`
+					SSLCert              string        `mapstructure:"ssl_cert"`
+					SSLKey               string        `mapstructure:"ssl_key"`
+					SSLCA                string        `mapstructure:"ssl_ca"`
+					Username             string        `mapstructure:"username"`
+					Password             string        `mapstructure:"password"`
+					Interval             time.Duration `mapstructure:"interval"`
+					LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
+					LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+					Port                 int           `mapstructure:"port"`
+					DryRun               bool          `mapstructure:"dry_run"`
+				}{
+					"primary": {
+						Address:              "127.0.0.1",
+						Port:                 3306,
+						Schema:               "test_db",
+						SSLCert:              "", // empty SSL fields should be allowed
+						SSLKey:               "",
+						SSLCA:                "",
+						Username:             "test_user",
+						Password:             "secret_password",
+						Interval:             30 * time.Second,
+						LongQueryLimit:       60 * time.Second,
+						LongTransactionLimit: 120 * time.Second,
 						DryRun:               false,
 					},
 				},

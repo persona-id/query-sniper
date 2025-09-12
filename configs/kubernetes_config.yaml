@@ -17,15 +17,18 @@ default_config: &default_config # run the check every 1 second
 # are stored in the file defined above, and the keys to each database entry must match.
 databases:
   dev-primary:
-    address: mysql-us1-primary.mysql.svc.cluster.local:3306
+    address: mysql-us1-primary.mysql.svc.cluster.local
+    port: 3306
     schema: web-us1
     <<: *default_config
   dev-replica0:
-    address: mysql-us1-replica0.mysql.svc.cluster.local:3306
+    address: mysql-us1-replica0.mysql.svc.cluster.local
+    port: 3306
     schema: web-us1
     <<: *default_config
   dev-replica1:
-    address: mysql-us1-replica1.mysql.svc.cluster.local:3306
+    address: mysql-us1-replica1.mysql.svc.cluster.local
+    port: 3306
     schema: web-us1
     interval: 10s
     long_query_limit: 60s

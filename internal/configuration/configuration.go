@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/goforj/godump"
@@ -18,7 +17,7 @@ var (
 	ErrEmptyUsername           = errors.New("empty username")
 	ErrEmptyPassword           = errors.New("empty password")
 	ErrEmptyAddress            = errors.New("empty address")
-	ErrInvalidAddressFormat    = errors.New("invalid address format")
+	ErrInvalidPort             = errors.New("invalid port")
 	ErrEmptySchema             = errors.New("empty schema")
 	ErrInvalidInterval         = errors.New("invalid interval")
 	ErrInvalidQueryLimit       = errors.New("invalid query limit")
@@ -30,11 +29,15 @@ type Config struct {
 	Databases map[string]struct {
 		Address              string        `mapstructure:"address"`
 		Schema               string        `mapstructure:"schema"` // TODO(kuzmik): add support for multiple schemas.
+		SSLCert              string        `mapstructure:"ssl_cert"`
+		SSLKey               string        `mapstructure:"ssl_key"`
+		SSLCA                string        `mapstructure:"ssl_ca"`
 		Username             string        `mapstructure:"username"`
 		Password             string        `mapstructure:"password"`
 		Interval             time.Duration `mapstructure:"interval"`
 		LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 		LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+		Port                 int           `mapstructure:"port"`
 		DryRun               bool          `mapstructure:"dry_run"`
 	} `mapstructure:"databases"`
 	CredentialFile string `mapstructure:"credential_file"`
@@ -137,11 +140,15 @@ func (settings *Config) Redact() Config {
 	redacted.Databases = make(map[string]struct {
 		Address              string        `mapstructure:"address"`
 		Schema               string        `mapstructure:"schema"`
+		SSLCert              string        `mapstructure:"ssl_cert"`
+		SSLKey               string        `mapstructure:"ssl_key"`
+		SSLCA                string        `mapstructure:"ssl_ca"`
 		Username             string        `mapstructure:"username"`
 		Password             string        `mapstructure:"password"`
 		Interval             time.Duration `mapstructure:"interval"`
 		LongQueryLimit       time.Duration `mapstructure:"long_query_limit"`
 		LongTransactionLimit time.Duration `mapstructure:"long_transaction_limit"`
+		Port                 int           `mapstructure:"port"`
 		DryRun               bool          `mapstructure:"dry_run"`
 	})
 
@@ -172,8 +179,8 @@ func (settings *Config) Validate() error {
 			return fmt.Errorf("address is missing for database %s: %w", name, ErrEmptyAddress)
 		}
 
-		if !strings.Contains(db.Address, ":") {
-			return fmt.Errorf("address %s must contain a port for database %s: %w", db.Address, name, ErrInvalidAddressFormat)
+		if db.Port <= 0 || db.Port > 65535 {
+			return fmt.Errorf("port %d is invalid for database %s (must be 1-65535): %w", db.Port, name, ErrInvalidPort)
 		}
 
 		if db.Schema == "" {
