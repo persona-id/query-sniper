@@ -1,3 +1,14 @@
+## 0.1.3 - 2025-09-12
+
+- **SSL Certificate Validation**: Add comprehensive SSL configuration validation to prevent insecure certificate combinations
+- **Updated Documentation**: README improvements with detailed SSL configuration guidance
+- **Configuration Validation Improvements**: Extended validation system with new error types
+- **Test Coverage Expansion**: Added comprehensive SSL validation test suite
+
+## 0.1.2 - 2025-09-10
+
+- **Configuration Bug Fixes**: Fix some issues with safe-mode flag handling and test reliability
+
 ## 0.1.1 - 2025-09-05
 
 - **Long Running Transactions**: add long-running transaction detection, in addition to the existing query detection
