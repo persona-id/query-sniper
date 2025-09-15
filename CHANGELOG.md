@@ -1,3 +1,7 @@
+## Unreleased
+
+- **Clean up logging**: Don't log the long query and long transaction queries that snipers use to `INFO`. Only `DEBUG` or `TRACE` will show the queries now
+
 ## 0.1.3 - 2025-09-12
 
 - **SSL Certificate Validation**: Add comprehensive SSL configuration validation to prevent insecure certificate combinations
