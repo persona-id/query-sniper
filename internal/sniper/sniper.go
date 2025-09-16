@@ -179,8 +179,15 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 		slog.Duration("transaction_limit", sniper.TransactionLimit),
 		slog.Bool("dry_run", sniper.DryRun),
 		slog.Bool("safe_mode_active", settings.SafeMode),
-		slog.String("lrq_query", sniper.LRQQuery),
-		slog.String("lrtxn_query", sniper.LRTXNQuery),
+	)
+
+	// if we're in debug mode, log the queries that will be run by the snipers. this should clean up the logs in normal mode.
+	slog.Debug("Sniper queries",
+		slog.String("name", sniper.Name),
+		slog.Group("queries",
+			slog.String("long_query", sniper.LRQQuery),
+			slog.String("long_transaction", sniper.LRTXNQuery),
+		),
 	)
 
 	return sniper, nil
