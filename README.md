@@ -2,6 +2,8 @@
 
 A lightweight, high-performance MySQL query monitoring daemon that automatically detects and terminates long-running queries across multiple database instances.
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/persona-id/query-sniper)](https://goreportcard.com/report/github.com/persona-id/query-sniper)
+
 ## Features
 
 - **Multi-Database Monitoring**: Monitor multiple MySQL instances simultaneously

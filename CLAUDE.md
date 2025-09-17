@@ -87,3 +87,8 @@ The sniper uses Go 1.25's new `sync.WaitGroup.Go()` method for concurrent execut
 - Signal handling supports graceful shutdown on `SIGINT`/`SIGTERM`
 - Database grants for the MySQL user that the appliaction uses must have `PROCESS` and `CONNECTION_ADMIN` (MySQL 8+) or `SUPER` privileges as well as access to the `performance_schema` and `information_schema` tables. See `README.md` or `.devcontainers/bin/bootstrap-dbs.sh` for more details
 - Schema filtering is per-database configurable but currently single-schema only
+
+
+## Changelog
+
+- When updating the changelog, ensure that the format complies with [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0)

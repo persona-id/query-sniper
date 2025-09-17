@@ -168,7 +168,7 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 	sniper.LRQQuery = query
 	sniper.LRTXNQuery = txn
 
-	slog.Info("Created new sniper",
+	slog.Info("Created new sniper: "+sniper.Name,
 		slog.String("name", sniper.Name),
 		slog.String("address", config.Address),
 		slog.Int("port", config.Port),
@@ -181,7 +181,7 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 		slog.Bool("safe_mode_active", settings.SafeMode),
 	)
 
-	// if we're in debug mode, log the queries that will be run by the snipers. this should clean up the logs in normal mode.
+	// log the queries that will be run by the snipers to DEBUG. this should clean up the logs in normal mode.
 	slog.Debug("Sniper queries",
 		slog.String("name", sniper.Name),
 		slog.Group("queries",
@@ -283,7 +283,7 @@ func (sniper QuerySniper) FindLongRunningTransactions(ctx context.Context) ([]My
 	return transactions, nil
 }
 
-// KillProcesses kills the given processes, or logs them if in dry run mode.
+// KillProcesses kills the given processes, or logs them if running in dry run or safe mode.
 func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlProcess) int {
 	killed := 0
 
@@ -293,6 +293,7 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 			continue
 		}
 
+		// if sniper is configured to be dry run (or if safe mode is active), only log what would be killed
 		if sniper.DryRun {
 			// In dry run mode, only log what would be killed
 			slog.Info("DRY RUN - Would kill mysql process",
@@ -331,7 +332,7 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 			continue
 		}
 
-		// Using digest_text instead of raw query info to avoid logging PII
+		// using digest_text instead of raw query info to avoid logging PII
 		slog.Info("Killed mysql process",
 			slog.String("db", sniper.Name),
 			slog.String("user", process.User.String),

@@ -1,32 +1,53 @@
-## Unreleased
+# Changelog
 
-- **Clean up logging**: Don't log the long query and long transaction queries that snipers use to `INFO`. Only `DEBUG` or `TRACE` will show the queries now
+All notable changes to this project will be documented in this file.
 
-## 0.1.3 - 2025-09-12
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-- **SSL Certificate Validation**: Add comprehensive SSL configuration validation to prevent insecure certificate combinations
-- **Updated Documentation**: README improvements with detailed SSL configuration guidance
-- **Configuration Validation Improvements**: Extended validation system with new error types
+## [Unreleased]
+
+## [0.1.4] - 2025-09-17
+
+### Changed
+- **Logging Improvements**: Don't log the long query and long transaction queries that snipers use to `INFO`. Only `DEBUG` or `TRACE` will show the specific queries now
+- **Keep a Changelog format**: Update CHANEGLOG.md to support the 1.1.0 standard of keepachangelog
+
+## [0.1.3] - 2025-09-12
+
+Added SSL support for SQL connections.
+
+### Added
+- **SSL Support**: Support SSL connections to MySQL backends, using the configuration file
+- **SSL Certificate Validation**: Add comprehensive SSL configuration validation on boot, in order to prevent insecure or invalid certificate combinations
 - **Test Coverage Expansion**: Added comprehensive SSL validation test suite
 
-## 0.1.2 - 2025-09-10
+### Changed
+- **Configuration Validation Improvements**: Extended validation system with new error types
+- **Updated Documentation**: README improvements with detailed SSL configuration guidance
 
+## [0.1.2] - 2025-09-10
+
+### Fixed
 - **Configuration Bug Fixes**: Fix some issues with safe-mode flag handling and test reliability
 
-## 0.1.1 - 2025-09-05
+## [0.1.1] - 2025-09-05
 
+### Added
 - **Long Running Transactions**: add long-running transaction detection, in addition to the existing query detection
 - **Dry Run**: refactor `dry_run` from the global config to a per-database configuration
 - **Safe Mode**: implements the `--safe-mode` CLI flag for global dry-run override capability
   - Adds comprehensive precedence logic (safe-mode overrides per-db settings)
+
+### Changed
 - **Enhance Logging**: includes transaction details and override status visibility
 - **Test Coverage**: add test coverage for all new features and precedence scenarios
 - **CI**: improve build system with semgrep security scanning and dependency updates
 
-## 0.1.0 - 2025-09-02
+## [0.1.0] - 2025-09-02
 
-Initial MVP release, with the following features:
+Initial MVP release.
 
+### Added
 - **Multi-Database Monitoring**: Monitor multiple MySQL instances simultaneously with independent configurations
 - **Intelligent Query Detection**: Uses MySQL's `performance_schema.processlist` for efficient long-running query identification
 - **Automated Query Termination**: Automatically kills queries exceeding configurable time thresholds using MySQL's `KILL` command
@@ -103,7 +124,3 @@ Initial MVP release, with the following features:
 - **Error Resilience**: Continues processing other queries if individual kills fail
 - **Build Info Tracking**: Logs build information for debugging and deployment tracking
 - **Audit Trail**: Complete audit trail of all actions for compliance and troubleshooting
-
-## Unreleased
-
-- Basic functionality
