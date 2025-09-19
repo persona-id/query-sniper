@@ -9,11 +9,12 @@
 - ✅ More detailed logging when a query/txn is killed
 - ✅ Improve test coverage
 - ✅ Use the new [synthetic time](https://antonz.org/go-1-25/#synthetic-time-for-testing) in the tests
+- ✅ Use the digest of long queries/txns, in order to strip out any potential PII
 - Long transaction (txn) detection and killing
   - `slog` logs this currently, but we should include some extra identifiable info if we wanted to create monitors
-  - We will also want to include the digest of said query, in order to strip out any potential PII
 - Copy long query time from web into the settings
 - See if the sniper can detect the `MYSQL_TIMEOUT` (or whatever it is) query hint and abide by that setting rather than the default
+- Expose metrics as an http endpoint, at least the stock golang metrics via the prometheus library
 
 ## Longer Term Features
 
