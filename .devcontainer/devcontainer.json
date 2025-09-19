@@ -2,7 +2,11 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/go
 {
 	"name": "query-sniper",
-	"features": {},
+	"features": {
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "1.25.1"
+		}
+	},
 	"dockerComposeFile": [
 		"../docker-compose.yml",
 		"docker-compose.devcontainer.yml"

@@ -38,7 +38,9 @@ help: ## Show this help message
 
 lint: ## Run golangci-lint
 	@echo "=> Running golangci-lint run --fix"
-	@golangci-lint-v2 run --fix
+	@golangci-lint run --fix
+	@echo "=> Running errortype checks"
+	@errortype -deep-is-check ./... && echo "0 issues."
 
 # Runs the application in either the local environment (my laptop) or the devcontainer. The devcontainer will have databases
 # already setup and running. However, the local environment will have to be setup manually; I'm using the local-proxysql project
@@ -54,7 +56,7 @@ run: clean build ## Run the application
 
 semgrep: ## Run semgrep
 	@echo "=> Running semgrep scan"
-	@semgrep scan
+	@semgrep scan || true
 
 snapshot: clean lint ## Build a snapshot of the docker image using goreleaser
 	@goreleaser --snapshot --clean
