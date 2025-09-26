@@ -15,7 +15,7 @@ const (
 	LevelFatal = slog.Level(12)
 )
 
-// setupLogger sets up the slog logger as the default logger.
+// SetupLogger sets up the slog logger as the default logger.
 // Uses settings.log.* to configure aspects of the logger handler.
 func SetupLogger(settings *Config) {
 	levelMap := map[string]slog.Level{

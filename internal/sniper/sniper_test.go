@@ -1118,6 +1118,7 @@ func TestFindLongRunningTransactions(t *testing.T) {
 	_, _ = sniper.FindLongRunningTransactions(ctx)
 }
 
+//nolint:unqueryvet
 func TestMysqlTransactionStruct(t *testing.T) {
 	t.Parallel()
 
