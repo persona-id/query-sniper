@@ -30,7 +30,7 @@ docker: clean lint
 
 fmt: ## Format code
 	@echo "=> Running golangci-lint fmt"
-	@golangci-lint-v2 fmt ./...
+	@golangci-lint fmt ./... > /dev/null 2>&1 || golangci-lint-v2 fmt ./...
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -38,7 +38,7 @@ help: ## Show this help message
 
 lint: ## Run golangci-lint
 	@echo "=> Running golangci-lint run --fix"
-	@golangci-lint run --fix
+	@golangci-lint run --fix ./... || golangci-lint-v2 run --fix ./...
 	@echo "=> Running errortype checks"
 	@errortype -deep-is-check ./... && echo "0 issues."
 

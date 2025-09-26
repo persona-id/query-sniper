@@ -25,7 +25,7 @@ var (
 	ErrInvalidSSLConfig        = errors.New("invalid SSL configuration")
 )
 
-// This struct is sorted by datatype to satisfy the fieldalignment linter rule.
+// Config struct to hold the viper config. This is sorted by datatype to satisfy the fieldalignment linter rule.
 type Config struct {
 	Databases map[string]struct {
 		Address              string        `mapstructure:"address"`

@@ -31,6 +31,7 @@ func TestConfigure(t *testing.T) {
 
 				configPath := filepath.Join(tempDir, "config.yaml")
 				credsPath := filepath.Join(tempDir, "creds.yaml")
+
 				t.Setenv("SNIPER_CONFIG_FILE", configPath)
 				t.Setenv("SNIPER_CREDS_FILE", credsPath)
 			},
@@ -58,6 +59,7 @@ databases:
     username: test_user
     password: test_pass
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -71,9 +73,11 @@ databases:
 			wantErr: false,
 			validate: func(t *testing.T, config *Config) {
 				t.Helper()
+
 				if config.Databases["primary"].Username != "test_user" {
 					t.Errorf("Expected username test_user, got %v", config.Databases["primary"].Username)
 				}
+
 				if config.Log.Level != "INFO" {
 					t.Errorf("Expected log level INFO, got %v", config.Log.Level)
 				}
@@ -113,6 +117,7 @@ databases:
     username: config_user
     password: config_pass
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -158,6 +163,7 @@ databases:
     interval: 30s
     long_query_limit: 60s
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -189,6 +195,7 @@ databases:
     interval: 30s
     long_query_limit: 60s
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -223,6 +230,7 @@ databases:
     username: user
     password: pass
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -242,6 +250,7 @@ databases:
 
 				configPath := filepath.Join(tempDir, "config.yaml")
 				credsPath := filepath.Join(tempDir, "creds.yaml")
+
 				t.Setenv("SNIPER_CONFIG_FILE", configPath)
 				t.Setenv("SNIPER_CREDS_FILE", credsPath)
 			},
@@ -266,6 +275,7 @@ databases:
   - invalid yaml
     missing proper structure
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -285,6 +295,7 @@ databases:
 
 				configPath := filepath.Join(tempDir, "config.yaml")
 				credsPath := filepath.Join(tempDir, "creds.yaml")
+
 				t.Setenv("SNIPER_CONFIG_FILE", configPath)
 				t.Setenv("SNIPER_CREDS_FILE", credsPath)
 			},
@@ -300,6 +311,7 @@ log:
 				credsContent := `
 databases: {}
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -339,6 +351,7 @@ databases:
     long_query_limit: 60s
     long_transaction_limit: 120s
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "creds.yaml"), []byte(credsContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -347,6 +360,7 @@ databases:
 			wantErr: false,
 			validate: func(t *testing.T, config *Config) {
 				t.Helper()
+
 				if config.Databases["primary"].Username != "creds_user" {
 					t.Errorf("Expected username creds_user, got %v", config.Databases["primary"].Username)
 				}
@@ -359,6 +373,7 @@ databases:
 
 				configPath := filepath.Join(tempDir, "config.yaml")
 				credsPath := filepath.Join(tempDir, "creds.yaml")
+
 				t.Setenv("SNIPER_CONFIG_FILE", configPath)
 				t.Setenv("SNIPER_CREDS_FILE", credsPath)
 			},
@@ -387,6 +402,7 @@ databases:
     username: test_user
     password: test_pass
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -400,9 +416,11 @@ databases:
 			wantErr: false,
 			validate: func(t *testing.T, config *Config) {
 				t.Helper()
+
 				if config.Databases["primary"].Username != "test_user" {
 					t.Errorf("Expected username test_user, got %v", config.Databases["primary"].Username)
 				}
+
 				if config.SafeMode {
 					t.Errorf("Expected SafeMode false (default), got %v", config.SafeMode)
 				}
@@ -415,6 +433,7 @@ databases:
 
 				configPath := filepath.Join(tempDir, "config.yaml")
 				credsPath := filepath.Join(tempDir, "creds.yaml")
+
 				t.Setenv("SNIPER_CONFIG_FILE", configPath)
 				t.Setenv("SNIPER_CREDS_FILE", credsPath)
 			},
@@ -446,6 +465,7 @@ databases:
     username: ssl_user
     password: ssl_pass
 `
+
 				err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0o600)
 				if err != nil {
 					t.Fatal(err)
@@ -459,16 +479,20 @@ databases:
 			wantErr: false,
 			validate: func(t *testing.T, config *Config) {
 				t.Helper()
+
 				primary := config.Databases["primary"]
 				if primary.SSLCert != "/path/to/cert.crt" {
 					t.Errorf("Expected SSL cert /path/to/cert.crt, got %v", primary.SSLCert)
 				}
+
 				if primary.SSLKey != "/path/to/key.key" {
 					t.Errorf("Expected SSL key /path/to/key.key, got %v", primary.SSLKey)
 				}
+
 				if primary.SSLCA != "/path/to/ca.crt" {
 					t.Errorf("Expected SSL CA /path/to/ca.crt, got %v", primary.SSLCA)
 				}
+
 				if primary.Username != "ssl_user" {
 					t.Errorf("Expected username ssl_user, got %v", primary.Username)
 				}

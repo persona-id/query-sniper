@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.5] - 2025-09-26
+
+- **Logging Improvements**: Added the database name to the first line of the log message, for a better view in the datadog log tail
+- **Dependency Updates**: Upgraded transitive depedencies
+- **golangci-lint Update**: Upgraded to the latest golangci-lint, and addressed the new failing linters in the code
 
 ## [0.1.4] - 2025-09-17
 

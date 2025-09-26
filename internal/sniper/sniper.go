@@ -296,7 +296,7 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 		// if sniper is configured to be dry run (or if safe mode is active), only log what would be killed
 		if sniper.DryRun {
 			// In dry run mode, only log what would be killed
-			slog.Info("DRY RUN - Would kill mysql process",
+			slog.Info("DRY RUN - Would kill mysql process"+sniper.Name,
 				slog.String("db", sniper.Name),
 				slog.String("user", process.User.String),
 				slog.Bool("dry_run", sniper.DryRun),
@@ -333,7 +333,7 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 		}
 
 		// using digest_text instead of raw query info to avoid logging PII
-		slog.Info("Killed mysql process",
+		slog.Info("Killed mysql process"+sniper.Name,
 			slog.String("db", sniper.Name),
 			slog.String("user", process.User.String),
 			slog.Bool("dry_run", sniper.DryRun),
