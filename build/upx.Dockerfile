@@ -1,7 +1,7 @@
 # This Dockerfile builds the binary, compresses it with upx, and then builds the final image.
 # It is not used for development or anything, at the moment.
 
-FROM golang:1.25.1-alpine AS builder
+FROM golang:1.25.3-alpine AS builder
 
 ENV GO111MODULE=on
 ENV CGO_ENABLED=0
