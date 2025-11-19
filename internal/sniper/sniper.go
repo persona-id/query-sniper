@@ -50,7 +50,6 @@ type MysqlProcess struct {
 type MysqlTransaction struct {
 	Command    string         `db:"command"`        // the command being executed
 	DigestText sql.NullString `db:"digest_text"`    // the digested query text (params removed)
-	Query      sql.NullString `db:"query"`          // the query that the transaction is running
 	Schema     sql.NullString `db:"current_schema"` // the database the transaction is running in
 	State      sql.NullString `db:"trx_state"`      // the state of the transaction
 	User       sql.NullString `db:"user"`           // the user executing the transaction
@@ -62,13 +61,25 @@ type MysqlTransaction struct {
 // longQueryTemplate is the template for the long running query hunter which is used by
 // generateHunterQueries() to generate the query used to find long running queries
 // for the specific sniper.
+//
+// Stock filters, which are always applied:
+//   - Command = 'Query' -- only focus on queries, exclude other commands like sleep, etc.
+//   - Info LIKE 'SELECT%' OR INFO LIKE 'INSERT%' OR INFO LIKE 'UPDATE%' OR INFO LIKE 'DELETE%' -- only focus on CRUD commands, exclude DDL and DML commands
+//   - Info NOT LIKE '%processlist%' -- exclude processlist queries... like this one
+//   - State NOT IN ('cleaning up') -- exclude state "cleaning up", which takes under 1ms and rarely actually appears in the processlist
+//
+// Optional filters, which are applied if defined in the generated query:
+//   - QueryTimeLimit -- the time limit for the query; queries older than this are killed
+//   - DBFilter -- filter to only include a specific database
 const longQueryTemplate = `
 	SELECT pl.id, pl.user, pl.db as current_schema, pl.command, pl.time, es.digest_text
 	FROM performance_schema.processlist pl
 	INNER JOIN performance_schema.threads t ON t.processlist_id = pl.id
 	INNER JOIN performance_schema.events_statements_current es ON es.thread_id = t.thread_id
-	WHERE pl.command NOT IN ('sleep', 'killed')
+	WHERE pl.command = 'Query'
+	AND (pl.info LIKE 'SELECT%' OR pl.info LIKE 'INSERT%' OR pl.info LIKE 'UPDATE%' OR pl.info LIKE 'DELETE%')
 	AND pl.info NOT LIKE '%processlist%'
+	AND pl.state NOT IN ('cleaning up')
 	{{if .QueryTimeLimit}}
 		{{.QueryTimeLimit}}
 	{{end}}
@@ -160,7 +171,7 @@ func New(name string, settings *configuration.Config) (QuerySniper, error) {
 		TransactionLimit: config.LongTransactionLimit,
 	}
 
-	query, txn, err := sniper.hunterQueries()
+	query, txn, err := sniper.generateHunterQueries()
 	if err != nil {
 		return QuerySniper{}, fmt.Errorf("error generating hunter queries: %w", err)
 	}
@@ -207,6 +218,23 @@ func (sniper QuerySniper) Loop(ctx context.Context) {
 			return
 
 		case <-ticker.C:
+			// search for long running transactions
+			txns, err := sniper.FindLongRunningTransactions(ctx)
+			if err != nil {
+				slog.Error("Error in FindLongRunningTransactions()",
+					slog.String("db", sniper.Name),
+					slog.String("query", sniper.LRTXNQuery),
+					slog.Any("err", err),
+				)
+
+				continue
+			}
+
+			if len(txns) > 0 {
+				sniper.KillTransactions(ctx, txns)
+			}
+
+			// search for long running queries
 			queries, err := sniper.FindLongRunningQueries(ctx)
 			if err != nil {
 				slog.Error("Error in FindLongRunningQueries()",
@@ -295,7 +323,6 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 
 		// if sniper is configured to be dry run (or if safe mode is active), only log what would be killed
 		if sniper.DryRun {
-			// In dry run mode, only log what would be killed
 			slog.Info("DRY RUN - Would kill mysql process on "+sniper.Name,
 				slog.String("db", sniper.Name),
 				slog.String("user", process.User.String),
@@ -350,9 +377,70 @@ func (sniper QuerySniper) KillProcesses(ctx context.Context, processes []MysqlPr
 	return killed
 }
 
-// hunterQueries generates the query used to find long running queries
+// KillTransactions kills the given transactions, or logs them if running in dry run or safe mode.
+func (sniper QuerySniper) KillTransactions(ctx context.Context, transactions []MysqlTransaction) int {
+	killed := 0
+
+	for _, transaction := range transactions {
+		if transaction.ID <= 0 {
+			continue
+		}
+
+		// if sniper is configured to be dry run (or if safe mode is active), only log what would be killed
+		if sniper.DryRun {
+			slog.Info("DRY RUN - Would kill mysql transaction on "+sniper.Name,
+				slog.String("db", sniper.Name),
+				slog.String("user", transaction.User.String),
+				slog.Bool("dry_run", sniper.DryRun),
+				slog.Int("time", transaction.Time),
+				slog.Int("transaction_id", transaction.ID),
+				slog.String("command", transaction.Command),
+				slog.String("schema", transaction.Schema.String),
+				slog.String("digest_text", transaction.DigestText.String),
+			)
+
+			killed++
+
+			continue
+		}
+
+		killQuery := fmt.Sprintf("KILL CONNECTION %d", transaction.ProcessID)
+
+		_, err := sniper.Connection.ExecContext(ctx, killQuery)
+		if err != nil {
+			slog.Error("Failed to kill transaction",
+				slog.String("db", sniper.Name),
+				slog.Int("trx_id", transaction.ID),
+				slog.Int("process_id", transaction.ProcessID),
+				slog.Any("err", err),
+			)
+
+			continue
+		}
+
+		slog.Info("Killed transaction",
+			slog.String("db", sniper.Name),
+			slog.Int("trx_id", transaction.ID),
+			slog.Int("process_id", transaction.ProcessID),
+		)
+
+		killed++
+	}
+
+	return killed
+}
+
+// generateHunterQueries generates the query used to find long running queries
 // for the specific sniper.
-func (sniper QuerySniper) hunterQueries() (string, string, error) {
+//
+// The queries are generated using the longQueryTemplate and longTXNTemplate templates,
+// and the QueryParams struct is used to pass in the parameters to the templates.
+//
+// Returns:
+//   - the query to find long running queries, or nil if there was an error
+//   - the query to find long running transactions, or nil if there was an error
+//   - an error if there was one, or nil
+func (sniper QuerySniper) generateHunterQueries() (string, string, error) {
 	// compile the query to detect long running queries
 	lrqTmpl := template.Must(
 		template.New("query hunter").Parse(longQueryTemplate),
