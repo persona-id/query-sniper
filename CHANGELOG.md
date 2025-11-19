@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2025-11-19
+
+- **Transaction Detection/Killing**: Enables long running txn detection and handling (also supports dry run/safe mode)
+- **Query Tuning**: Will now only detect CRUD operations (`INSERT`, `SELECT`, `UPDATE`, `DELETE`), and will no longer detect or kill DDL changes
+- **Dependency Updates**: Upgraded to the latest `x/sys` and `x/text` libraries
+- **Improved Testing**: Fixed and updates a few tests to increase coverage; without DB mocking, we can't really test the actual DB calls yet
+
 ## [0.1.5] - 2025-09-26
 
 - **Logging Improvements**: Added the database name to the first line of the log message, for a better view in the datadog log tail

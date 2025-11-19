@@ -10,8 +10,11 @@
 - ✅ Improve test coverage
 - ✅ Use the new [synthetic time](https://antonz.org/go-1-25/#synthetic-time-for-testing) in the tests
 - ✅ Use the digest of long queries/txns, in order to strip out any potential PII
-- Long transaction (txn) detection and killing
-  - `slog` logs this currently, but we should include some extra identifiable info if we wanted to create monitors
+- ✅ Add `AND STATE NOT IN ('cleaning up')` filter to the hunting query, as it's harmless
+- ✅ Exclude `ALTER` and other DDL commands; focus only on CRUD commands for killing
+- ✅ Long transaction (txn) detection and killing
+- Use DB mocking in tests, so that we can actually test the SQL commands
+  - Or maybe look into testcontainers, and run an actual MySQL instance against which we are running integration tests
 - Copy long query time from web into the settings
 - See if the sniper can detect the `MYSQL_TIMEOUT` (or whatever it is) query hint and abide by that setting rather than the default
 - Expose metrics as an http endpoint, at least the stock golang metrics via the prometheus library
