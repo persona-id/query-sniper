@@ -1,7 +1,7 @@
 # This is the dockerfile that the Goreleaser release process uses to build the container image.
 # It is not used for development.
 
-FROM alpine:3.22.1
+FROM alpine:3.22.2
 
 RUN apk add --no-cache bash=5.2.37-r0 \
     && addgroup -S sniper \
