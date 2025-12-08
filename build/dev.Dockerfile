@@ -16,7 +16,7 @@ RUN go mod download \
   && go build -o query-sniper cmd/query-sniper/main.go
 
 # Stage 2
-FROM alpine:3.22.2 AS runner
+FROM alpine:3.23.0 AS runner
 
 RUN apk add --no-cache bash=5.2.37-r0 \
   && addgroup sniper \
