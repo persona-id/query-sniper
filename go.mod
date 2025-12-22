@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/goforj/godump v1.6.0
+	github.com/goforj/godump v1.8.0
 	github.com/lmittmann/tint v1.1.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
