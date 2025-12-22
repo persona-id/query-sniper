@@ -21,7 +21,7 @@ COPY --from=builder /build/query-sniper /query-sniper.org
 RUN upx --best --lzma -o /query-sniper /query-sniper.org
 
 # Stage 3 - Final image
-FROM alpine:3.22.2
+FROM alpine:3.23.2
 
 RUN apk add --no-cache ca-certificates bash=5.2.37-r0 \
     && addgroup -S sniper \
